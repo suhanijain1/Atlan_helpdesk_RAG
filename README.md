@@ -2,9 +2,36 @@
 
 **By Suhani Jain**
 
-This project implements an end-to-end AI-powered customer support system that combines intelligent ticket classification, comprehensive documentation retrieval, and agentic hybrid RAG response generation. The system processes customer queries through multiple stages: initial triage classification, validation through clustering analysis, and comprehensive response generation using a hybrid retrieval system.
+## Core Questions This System Answers
 
-## 🚀 Quick Start
+The entire pipeline is designed to answer four fundamental questions for every support ticket:
+
+### 1. "What is this ticket about?"
+-   **Component**: **Smart Triage Engine** (`triage.py`)
+-   **Answer**: The system uses a powerful AI model (Google's Gemini) to instantly categorize each ticket. It determines the **topic** (e.g., *SSO*, *API/SDK*, *Connector*), the customer's **sentiment**, and the ticket's **priority**. This is the crucial first step for understanding and routing.
+
+### 2. "How confident areIabout this category?"
+-   **Component**: **Real-Time Validation** (within `triage_evaluration_full.py`)
+-   **Answer**: Before proceeding, the system double-checks its own work. It compares the new ticket to thousands of similar historical tickets. If the ticket's topic matches the topic of tickets it looks similar to, confidence is high. If it's an unusual or ambiguous ticket, the system flags it as low-confidence.
+
+### 3. "What is the right answer?"
+-   **Component**: **Agentic Hybrid RAG System** (`hybrid_rag.py`)
+-   **Answer**: Once the system understands the ticket, it acts like an expert support agent. It searches a comprehensive knowledge base of technical docs and guides to find the most relevant information. It then writes a clear, helpful, and comprehensive response, citing the exact documents it used.
+
+### 4. "How well is our AI system performing overall?"
+-   **Component**: **Batch Evaluation Framework** (`run_batch_evaluation.py`)
+-   **Answer**: This is our offline analytics tool. It takes a large set of classified tickets and generates reports on the system's performance. It helps us answer questions like "Are our topic categories clear and distinct?" or "Which types of tickets does the AI struggle with?". This is essential for long-term improvement.
+
+## How It Works: A Simple 3-Step Process
+
+When a new ticket arrives, the chatbot pipeline performs three steps in real-time:
+
+1.  **Understand & Triage**: The AI reads the ticket and assigns it a topic and priority.
+2.  **Validate & Double-Check**: It cross-references the ticket with past data to confirm its classification.
+3.  **Answer with Sources**: It finds relevant documentation and generates a detailed, trustworthy response.
+
+
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -14,7 +41,7 @@ This project implements an end-to-end AI-powered customer support system that co
 
 1. **Clone and navigate to the project:**
 ```bash
-git clone <repository-url>
+git clone https://github.com/suhanijain1/Atlan_helpdesk_RAG.git
 cd atlan
 ```
 
@@ -40,28 +67,18 @@ echo "GEMINI_API_KEY=your_api_key_here" >> .env
 5. **Run the system:**
 ```bash
 # Launch the complete Streamlit interface
-streamlit run app.py
-
-# Or run the original classification pipeline
-python pipeline/main.py
-```
-
-### Alternative Setup (using setup script)
-```bash
-chmod +x setup.sh
-./setup.sh
+streamlit run app.py 
 ```
 
 ## Project Architecture
 
 The system consists of three main components that work together:
 
-### Component 1: Intelligent Triage System
+### **Component 1: Intelligent Triage & Validation**
+* **Goal:** To understand "What is this ticket about?" and "How confident are we?"
+* **Implementation:** `triage.py` analyzes each ticket to determine its **topic**, **sentiment**, and **priority**. A unique validation step then compares the new ticket to historical data to provide a real-time confidence score, flagging ambiguous queries.
 
-**Goal:** Classify customer support tickets for intelligent routing and response prioritization.
-
-**Implementation:**
-- **Primary Method:** Gemini 1.5 Flash with structured JSON output for consistent classification
+- **Primary Method:** Gemini 1.5-8b with pydantic JSON output for consistent classification (used a smaller model since low cost and this task does not need reasoning. Ideally would use a self hosted SLM)
 - **Classification Dimensions:**
   - **Topic:** SSO, API/SDK, How-to, Product, Best Practices  
   - **Sentiment:** Positive, Negative, Neutral
@@ -78,12 +95,24 @@ The system consists of three main components that work together:
   "urgency_score": 8.5
 }
 ```
+Because our evaluation in 'evaluation.ipynb' revealed that many tickets are inherently multi-label,Iadapted our pipeline to embrace this complexity instead of forcing a single, often incomplete, classification. This makes our routing smarter and our final answers more comprehensive. To achieve this,Iimplemented the following changes:
 
-### Component 2: Evaluation Framework
+- Priority-Based Routing: Instead of routing based on only the first topic detected, the pipeline now uses a defined priority order (e.g., API/SDK > SSO > Product). This ensures that tickets with multiple topics are always routed to the most appropriate specialist team.
 
-**Goal:** Validate classification quality and identify potential misclassifications.
+- Composite RAG Context: The full list of detected topics is now passed to the RAG system. This gives the generator richer context, allowing it to synthesize answers that address all facets of a user's complex query.
 
-**What We Implemented:**
+- Adjusted Evaluation:Inow recognize that a low "Classification Margin" is not a failure, but an indicator of a valid multi-label ticket. Our success metrics will shift to focus on recall (i.e., "were all the correct topics identified?") rather than single-topic precision.
+
+This approach fully leverages the nuanced understanding of our LLM classifier and better reflects the reality of customer support issues.
+
+### **Component 2: Agentic Hybrid RAG System**
+* **Goal:** To find and synthesize the correct answer.
+* **Implementation:** A sophisticated Retrieval-Augmented Generation pipeline (`hybrid_rag.py`) that:
+    1.  **Analyzes** the query to determine the best search strategy.
+    2.  **Retrieves** relevant documents from a knowledge base using a hybrid approach (keyword search + semantic search).
+    3.  **Generates** a final, human-readable answer using a powerful prompt, ensuring every claim is cited with its source.
+
+**Teqniques:**
 - **Clustering-based validation** using sentence transformers and KMeans
 - **Coherence analysis** measuring how well tickets cluster by their assigned topics
 - **Separation analysis** identifying overlapping or unclear categories
@@ -94,7 +123,7 @@ The system consists of three main components that work together:
 - **Separation Ratio:** Distance between topic centroids (>1.2 indicates clear separation)
 - **Classification Confidence:** Based on margin between assigned and best alternative topic
 
-**Output:** Detailed evaluation reports in `triage_results/` with visualizations and flagged tickets.
+**Output:** Detailed evaluation reports in `evaluation.ipynb/` with visualizations and conclusions
 
 ### Component 3: Agentic Hybrid RAG System
 
@@ -158,9 +187,9 @@ documentation_urls = {
 - **Semantic (Dense):** Handles paraphrases, synonyms, conceptual similarity  
 - **Combined:** 20-25% improvement in retrieval coverage vs either method alone
 
-## 🛠️ Usage
+##  Usage
 
-### Complete System (Recommended)
+### Complete System
 ```bash
 # Launch integrated interface with full pipeline
 streamlit run app.py
@@ -244,7 +273,7 @@ Key settings:
 ## ⚠️ Technical Decisions & Tradeoffs
 
 ### Classification Approach
-**What We Chose:** Gemini-based classification with structured JSON output
+**WhatIChose:** Gemini-based classification with structured JSON output
 **Why:** Guarantees coverage (every ticket gets classified) and provides consistent structure
 **Alternative Considered:** Pure clustering approach
 **Tradeoff:** Clustering alone was unreliable on short/noisy text, often producing 0-3 coherent clusters from 20+ expected topics
@@ -255,13 +284,13 @@ Key settings:
 **Consideration:** Would migrate to self-hosted model for production scale
 
 ### Retrieval Strategy
-**What We Chose:** Hybrid (BM25 + Semantic) with Reciprocal Rank Fusion
+**WhatIChose:** Hybrid (BM25 + Semantic) with Reciprocal Rank Fusion
 **Why:** Combines exact match capabilities with semantic understanding
 **Performance:** 20-25% improvement vs single-method retrieval
 **Tradeoff:** Added latency from dual retrieval passes
 
 ### Evaluation Method
-**What We Chose:** Clustering-based validation with coherence metrics
+**WhatIChose:** Clustering-based validation with coherence metrics
 **Why:** Provides quantifiable measures of classification quality
 **Output:** Flags problematic tickets for human review (margin < 0.2 threshold)
 
