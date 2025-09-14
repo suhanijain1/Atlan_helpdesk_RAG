@@ -108,58 +108,90 @@ class HybridRetriever:
         
         # Try to load pre-computed embeddings first
         if self._load_cached_embeddings():
-            print("⚡ Loaded pre-computed embeddings - instant startup!")
+            print("⚡ Loaded pre-computed embeddings from cache. Startup will be fast!")
         else:
-            print("📚 Computing embeddings from scratch...")
+            print("📚 No cache found. Computing embeddings from scratch... (This will happen only once)")
             # Load documents and create chunks
             self.documents = self._load_documents(docs_file)
             self.chunks = self._create_chunks_with_metadata()
             
             # Initialize embedding model
             print("📥 Loading embedding model...")
-            self.embedder = SentenceTransformer('all-mpnet-base-v2')  # Higher quality as per your plan
+            self.embedder = SentenceTransformer('multi-qa-mpnet-base-dot-v1')
             
-            # Create embeddings with deterministic behavior
-            print("Creating embeddings...")
+            # Create embeddings
+            print("🧠 Creating embeddings for the knowledge base...")
             chunk_texts = [chunk['content'] for chunk in self.chunks]
             self.embeddings = self.embedder.encode(chunk_texts, show_progress_bar=True)
+            
+            # *** NEW: Save the newly created embeddings to the cache ***
+            self._save_embeddings_to_cache()
         
-        # Initialize BM25
-        print("🔍 Setting up BM25 search...")
+        # Initialize BM25 (this is fast and should always run)
+        print("🔍 Setting up BM25 lexical search...")
         texts = [chunk['content'] for chunk in self.chunks]
         tokenized_texts = [text.lower().split() for text in texts]
         self.bm25 = BM25Okapi(tokenized_texts)
         
         print("✅ Hybrid Retrieval System ready!")
+
+    def _save_embeddings_to_cache(self):
+        """Saves embeddings, chunks, and model info to a cache directory."""
+        cache_dir = 'embeddings_cache'
+        print(f"💾 Saving embeddings and chunks to '{cache_dir}' for future runs...")
+        
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            
+            # Save embeddings
+            np.save(f'{cache_dir}/embeddings.npy', self.embeddings)
+            
+            # Save chunks
+            with open(f'{cache_dir}/chunks.json', 'w') as f:
+                json.dump(self.chunks, f)
+            
+            # Save model info to prevent future mismatches
+            model_info = {'model_name': 'multi-qa-mpnet-base-dot-v1'}
+            with open(f'{cache_dir}/model_info.json', 'w') as f:
+                json.dump(model_info, f)
+                
+            print("✅ Cache saved successfully.")
+        except Exception as e:
+            print(f"❌ Failed to save cache: {e}")
     
     def _load_cached_embeddings(self) -> bool:
         """Load pre-computed embeddings if available"""
         cache_dir = 'embeddings_cache'
+        required_files = [
+            f'{cache_dir}/embeddings.npy',
+            f'{cache_dir}/chunks.json',
+            f'{cache_dir}/model_info.json'
+        ]
         
-        if not os.path.exists(f'{cache_dir}/embeddings.npy'):
+        if not all(os.path.exists(f) for f in required_files):
             return False
         
         try:
-            # Load embeddings
-            self.embeddings = np.load(f'{cache_dir}/embeddings.npy')
-            
-            # Load chunks
-            with open(f'{cache_dir}/chunks.json', 'r') as f:
-                self.chunks = json.load(f)
-            
-            # Load model info
+            # Load model info first to ensure consistency
             with open(f'{cache_dir}/model_info.json', 'r') as f:
                 model_info = json.load(f)
             
-            # Initialize embedding model (needed for query encoding)
+            # Load embeddings and chunks
+            self.embeddings = np.load(f'{cache_dir}/embeddings.npy')
+            with open(f'{cache_dir}/chunks.json', 'r') as f:
+                self.chunks = json.load(f)
+            
+            # Initialize the same embedding model (needed for query encoding)
             self.embedder = SentenceTransformer(model_info['model_name'])
             
-            print(f"📦 Loaded {len(self.chunks)} cached chunks with embeddings")
+            print(f"📦 Loaded {len(self.chunks)} cached chunks with embeddings.")
             return True
             
         except Exception as e:
             print(f"❌ Failed to load cached embeddings: {e}")
             return False
+    
+    # --- The rest of the HybridRetriever functions (_load_documents, _create_chunks_with_metadata, retrieve, etc.) remain unchanged ---
     
     def _load_documents(self, docs_file: str) -> List[Dict]:
         """Load scraped documents"""
@@ -301,14 +333,13 @@ class HybridRetriever:
         # Sort by combined score
         return sorted(final_results, key=lambda x: x['score'], reverse=True)
 
-
 class RerankingAgent:
     """Simple reranking agent using sentence similarity"""
     
     def __init__(self):
         print("🔧 Loading reranking model...")
         # Use the same embedding model for consistency and simplicity
-        self.rerank_model = SentenceTransformer('all-mpnet-base-v2')
+        self.rerank_model = SentenceTransformer('multi-qa-mpnet-base-dot-v1')
         print("✅ Reranking model loaded!")
     
     def rerank_documents(self, query: str, retrieved_docs: List[Dict], top_k: int = 10) -> List[Dict]:
@@ -356,17 +387,19 @@ class CitationAwareGenerator:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')  # Fast and reliable
         
+
     def generate_response(self, query: str, reranked_docs: List[Dict]) -> Dict:
-        """Generate response with proper citations using only Gemini"""
+        """Generate response with proper citations using a structured, multi-example prompt."""
         
         if not reranked_docs:
             return {
-                'answer': "I don't have enough information in the knowledge base to answer this question.",
+                'answer': "I don't have enough information in my knowledge base to answer this question.",
                 'sources': [],
-                'context_used': 0
+                'context_used': 0,
+                'generation_successful': True
             }
         
-        # Assemble context with source tracking
+        # Step 1: Assemble the context with clear source tracking
         context_parts = []
         source_urls = set()
         
@@ -381,38 +414,92 @@ class CitationAwareGenerator:
         
         context_text = "\n".join(context_parts)
         
-        # Create deterministic prompt for factual accuracy
-        prompt = f"""You are an expert Atlan customer support agent. Answer the user's question using the provided documentation context.
+        # Step 2: Create the full, improved prompt with multiple examples
+        prompt = f"""You are a meticulous and precise technical support expert for a data platform called Atlan.
+Your task is to answer the user's question based *strictly* on the provided context.
 
-REQUIREMENTS:
-1. Use ONLY information explicitly stated in the provided context
-2. Include source citations for ALL factual claims using [Source X] format
-3. Be helpful and actionable - provide next steps when possible
-4. If specific details aren't available, acknowledge what IS known and suggest logical next steps
-5. Never invent information, but be constructive rather than just saying "I don't know"
-6. Maintain professional, helpful tone
+<RULES>
+1.  You MUST ground your entire answer in the provided context.
+2.  You MUST cite every single factual claim by appending `[Source X]` to the end of the sentence. `X` corresponds to the source number from the context.
+3.  If the context does not contain the answer, you MUST state that the information is not available in the provided documentation. DO NOT use outside knowledge.
+4.  DO NOT combine information from multiple sources into a single sentence. Each sentence should only reference facts from one source.
+5.  Your tone should be helpful, direct, and professional.
+</RULES>
 
-RESPONSE STRUCTURE:
-- Start with what you CAN help with based on the documentation
-- Provide relevant information from the context with citations
-- When information is missing, suggest practical next steps (contact support, check documentation sections, etc.)
-- End with actionable guidance
+Here are some examples of how to respond correctly:
+<EXAMPLES>
 
-Context from Atlan Documentation:
+<EXAMPLE 1: Procedural Question>
+<CONTEXT>
+[Source 1: https://docs.atlan.com/lineage]
+To view lineage, navigate to the asset's profile. The lineage tab is located next to the overview tab.
+
+[Source 2: https://docs.atlan.com/columns]
+Column-level lineage can be viewed by clicking on a column name within the asset's schema view.
+</CONTEXT>
+<QUESTION>
+How do I see column-level lineage?
+</QUESTION>
+<ANSWER>
+To view lineage for an asset, you can go to its profile and click on the lineage tab [Source 1]. For column-level lineage specifically, you must click on a column's name in the schema view [Source 2].
+</ANSWER>
+</EXAMPLE 1>
+
+
+<EXAMPLE 2: Answer Not Found in Context>
+<CONTEXT>
+[Source 1: https://docs.atlan.com/sso/okta]
+To configure Okta SSO, you need the 'Single sign-on URL' from Atlan. This URL is also known as the Assertion Consumer Service (ACS) URL.
+
+[Source 2: https://docs.atlan.com/sso/azure]
+For Azure AD, you must provide the 'Audience URI'. This is typically your Atlan instance URL.
+</CONTEXT>
+<QUESTION>
+What is the session timeout for Okta SSO?
+</QUESTION>
+<ANSWER>
+The provided documentation describes how to configure Okta SSO using the 'Single sign-on URL' [Source 1]. However, the context does not contain information about the specific session timeout duration for Okta SSO integrations [Source 1, 2].
+</ANSWER>
+</EXAMPLE 2>
+
+
+<EXAMPLE 3: Troubleshooting Question>
+<CONTEXT>
+[Source 1: https://docs.atlan.com/integrations/dbt]
+For dbt Cloud integrations, you must provide a valid read-only service account token.
+
+[Source 2: https://docs.atlan.com/integrations/dbt]
+For dbt Core, Atlan requires both the `manifest.json` and `catalog.json` files to be uploaded to build lineage.
+</CONTEXT>
+<QUESTION>
+My dbt lineage is missing, what should I check?
+</QUESTION>
+<ANSWER>
+To troubleshoot missing dbt lineage, the steps depend on your dbt setup [Source 1, 2]. If you are using dbt Cloud, you must ensure that a valid read-only service token has been provided [Source 1]. If you are using dbt Core, you need to verify that both the `manifest.json` and `catalog.json` files have been uploaded correctly [Source 2].
+</ANSWER>
+</EXAMPLE 3>
+
+</EXAMPLES>
+
+Now, answer the user's question based on the real context below.
+
+<CONTEXT>
 {context_text}
+</CONTEXT>
 
-User Question: {query}
+<QUESTION>
+{query}
+</QUESTION>
 
-Provide a helpful response with proper source citations:"""
-
+<ANSWER>
+"""
+        # Step 3: Generate the response from the model
         try:
-            # Generate with low temperature for deterministic behavior
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,  # Low temperature for consistency
-                    max_output_tokens=800,
-                    top_p=0.8
+                    temperature=0.0,  # Set to 0.0 for maximum factuality and rule-following
+                    max_output_tokens=1024,
                 )
             )
             
@@ -428,8 +515,8 @@ Provide a helpful response with proper source citations:"""
         except Exception as e:
             return {
                 'answer': f"I apologize, but I encountered an error while generating the response: {str(e)}",
-                'sources': [],
-                'context_used': 0,
+                'sources': list(source_urls), # Still return sources that were found
+                'context_used': len(reranked_docs),
                 'generation_successful': False
             }
 
@@ -453,28 +540,28 @@ class AgenticHybridRAG:
         self.generator = CitationAwareGenerator(api_key)
         
         # Initialize classifier
-        from pipeline.feature_extractor import GeminiFeatureExtractor
-        self.classifier = GeminiFeatureExtractor(api_key)
+        #from pipeline.feature_extractor import GeminiFeatureExtractor
+        #elf.classifier = GeminiFeatureExtractor(api_key)
         
         print("Agentic Hybrid RAG System ready!")
     
     def answer_question(self, query: str, classification: Dict = None) -> Dict:
-        """Complete agentic RAG pipeline"""
-        
+        """Complete agentic RAG pipeline (simplified without reranker)."""
+
         # Default classification if not provided
         if classification is None:
             classification = {'topic': 'How-to', 'priority': 'P1'}
-        
+
         # Step 1: Query Analysis
         analysis = self.query_analyzer.analyze_query(query, classification)
-        
-        # Step 2: Multi-Modal Retrieval with strategy
+
+        # Step 2: Multi-Modal Retrieval. We'll ask for fewer docs since we aren't reranking.
         retrieved_docs = self.retriever.retrieve(
             query, 
             analysis['retrieval_strategy'], 
-            top_k=20
+            top_k=7  # Ask for the top 7 docs to get good context
         )
-        
+
         if not retrieved_docs:
             return {
                 'answer': "I don't have enough information in the knowledge base to answer this question.",
@@ -485,23 +572,20 @@ class AgenticHybridRAG:
                     'documents_reranked': 0
                 }
             }
-        
-        # Step 3: Cross-Encoder Reranking
-        reranked_docs = self.reranker.rerank_documents(query, retrieved_docs, top_k=10)
-        
-        # Step 4: Citation-Aware Generation
-        result = self.generator.generate_response(query, reranked_docs)
-        
+
+        # Step 3: Citation-Aware Generation (using the retrieved docs directly)
+        result = self.generator.generate_response(query, retrieved_docs)
+
         # Add pipeline information
         result['pipeline_info'] = {
             'retrieval_strategy': analysis['retrieval_strategy'],
             'query_type': analysis['query_type'],
             'complexity_score': analysis['complexity_score'],
             'documents_retrieved': len(retrieved_docs),
-            'documents_reranked': len(reranked_docs),
+            'documents_reranked': len(retrieved_docs), # The number is now the same
             'key_entities': analysis['key_entities']
         }
-        
+
         return result
 
 def main():
