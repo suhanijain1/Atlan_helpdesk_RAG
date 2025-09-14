@@ -1,4 +1,4 @@
-google-generativeai
+google-genai
 pydantic
 sentence-transformers
 scikit-learn
@@ -17,3 +17,5 @@ faiss-cpu
 plotly
 tqdm
 lxml
+pandas
+numpy
