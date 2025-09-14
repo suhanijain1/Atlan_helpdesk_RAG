@@ -30,7 +30,8 @@ class QueryAnalysisAgent:
     def analyze_query(self, query_text: str, classification: Dict) -> Dict:
         """Determine retrieval strategy based on query and classification"""
         
-        topic = classification.get('topic', 'Other')
+        # Use the primary_topic for strategy selection, which was determined by the pipeline
+        topic = classification.get('primary_topic', 'Other') 
         priority = classification.get('priority', 'P2')
         
         # Determine retrieval strategy
