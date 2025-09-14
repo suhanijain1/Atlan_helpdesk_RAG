@@ -72,7 +72,7 @@ class ChatbotPipeline:
 
     def run(self, query: str, ticket_id: str = None) -> PipelineResult:
         """
-        Executes the full chatbot pipeline for a given query, now with conditional RAG logic.
+        Executes the full pipeline with multi-label aware routing.
         """
         start_time = time.time()
         if not ticket_id:
@@ -80,29 +80,37 @@ class ChatbotPipeline:
         
         logging.info(f"Processing query for ticket [{ticket_id}]...")
         
-        # Stage 1 & 2: Triage and Validate (These always run)
+        # Stages 1 & 2: Triage and Validate
         triage_result = self._stage_triage(query, ticket_id)
         validation_result = self._stage_validate(triage_result)
         
-        # Define topics that should trigger a full RAG response
+        # --- NEW: Multi-Label Aware Routing Logic ---
         RAG_TOPICS = {"How-to", "Product", "Best practices", "API/SDK", "SSO"}
+        # Define a priority order. The first match in this list will be the primary topic.
+        TOPIC_PRIORITY_ORDER = [
+            "API/SDK", "SSO", "Lineage", "Connector", 
+            "Sensitive data", "Product", "Best practices", "Glossary", "How-to", "Other"
+        ]
         
-        # NEW LOGIC: Check if the primary topic requires a RAG response
-        primary_topic = triage_result.topics[0] if triage_result.topics else "Other"
+        primary_topic = "Other" # Default
+        detected_topics = triage_result.topics
+        for topic in TOPIC_PRIORITY_ORDER:
+            if topic in detected_topics:
+                primary_topic = topic
+                break
         
+        logging.info(f"[{ticket_id}] Multi-label topics detected: {detected_topics}. Primary topic for routing: '{primary_topic}'.")
+
         if primary_topic in RAG_TOPICS:
-            logging.info(f"[{ticket_id}] Topic '{primary_topic}' requires RAG. Generating direct answer.")
-            # Stage 3: Generate a response using the RAG system
-            rag_response = self._stage_respond(query, triage_result)
-            # Stage 4: Format the final, user-facing answer
+            logging.info(f"[{ticket_id}] Primary topic requires RAG. Generating direct answer.")
+            rag_response = self._stage_respond(query, triage_result, primary_topic)
             final_answer = self._format_final_answer(triage_result, validation_result, rag_response)
         else:
-            logging.info(f"[{ticket_id}] Topic '{primary_topic}' does not require RAG. Routing ticket.")
-            # Create a simple routing message for non-RAG topics
-            rag_response = {} # No RAG response
+            logging.info(f"[{ticket_id}] Primary topic does not require RAG. Routing ticket.")
+            rag_response = {}
             final_answer = (
-                f"Thank you for your query. Your ticket has been classified as a "
-                f"'{primary_topic}' issue and has been routed to the appropriate team for review."
+                f"Thank you for your query. Your ticket has been classified with topics "
+                f"({', '.join(detected_topics)}) and routed for '{primary_topic}' review."
             )
 
         total_time = time.time() - start_time
@@ -132,12 +140,14 @@ class ChatbotPipeline:
         logging.info(f"[{triage_result.ticket_id}] Validation complete. Status: {result.status}, Confidence: {result.confidence}")
         return result
         
-    def _stage_respond(self, query: str, triage_result: TriageResult) -> Dict[str, Any]:
-        """Calls the AgenticHybridRAG module."""
+    def _stage_respond(self, query: str, triage_result: TriageResult, primary_topic: str) -> Dict[str, Any]:
+        """Calls the AgenticHybridRAG module with full context."""
         logging.info(f"[{triage_result.ticket_id}] Stage 3: Response Generation...")
-        # The RAG system can use the classification as context
+        
+        # Pass the primary topic for strategy, but the full list for context.
         classification_context = {
-            "topic": triage_result.topics[0] if triage_result.topics else "Other",
+            "primary_topic": primary_topic,
+            "all_topics": triage_result.topics,
             "priority": triage_result.priority
         }
         result = self.rag_system.answer_question(query, classification=classification_context)
