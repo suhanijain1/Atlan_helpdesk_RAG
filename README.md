@@ -36,7 +36,7 @@ When a new ticket arrives, the chatbot pipeline performs three steps in real-tim
 
 Our goal was to build a system that was not only technically capable but also reliable and maintainable. Each component was designed through a process of identifying a core problem, exploring solutions, and making deliberate trade-offs.
 
-![Architecture diagram](architecture_diagram.png)
+![Example useage](architecture_diagram.png)
 
 ### Component 1: Intelligent Triage & Validation
 
@@ -125,12 +125,12 @@ Finally, even with the right documents, the LLM still needs to be constrained. W
 
 
 ### Knowledge Base Creation Process
-**Knowledge Base:** 61 comprehensive documents covering:
-- SSO Integration (25 docs) - Azure AD, Okta, Google, SAML setup guides
-- API/SDK Documentation (21 docs) - Developer guides, code examples
-- Product Features (5 docs) - Core capabilities and workflows
-- How-to Guides (6 docs) - Step-by-step instructions
-- Best Practices (4 docs) - Governance and administration guidance
+**Knowledge Base:** 222 comprehensive documents covering:
+- SSO Integration (83 docs) - Azure AD, Okta, Google, SAML setup guides
+- API/SDK Documentation (89 docs) - Developer guides, code examples
+- Product Features (8 docs) - Core capabilities and workflows
+- How-to Guides (37 docs) - Step-by-step instructions
+- Best Practices (5 docs) - Governance and administration guidance
 
 
 **Challenge:** Building a comprehensive knowledge base required systematically scraping Atlan's documentation across multiple domains.
@@ -182,75 +182,28 @@ documentation_urls = {
 # Launch integrated interface with full pipeline
 streamlit run app.py
 ```
-
-Features:
-- Submit support tickets through web interface
-- Real-time classification with confidence scores
-- Comprehensive response generation with source citations
-- Evaluation dashboard showing classification quality
-- Interactive knowledge base search
-
-### Original Classification Pipeline
-```bash
-# Run the original triage classification system
-python pipeline/main.py
-
-# Results saved to:
-# - classification_results.json
-# - triage_results/ (evaluation metrics and plots)
-```
-
-### Individual Component Testing
-
-**Hybrid RAG System:**
-```bash
-python -c "
-from hybrid_rag import AgenticHybridRAG
-rag = AgenticHybridRAG()
-result = rag.answer_question('How do I set up SSO with Azure AD?')
-print(result['answer'])
-"
-```
-
-**Classification Only:**
-```bash
-python -c "
-from atlan_helpdesk_pipeline import AtlanHelpdeskPipeline
-pipeline = AtlanHelpdeskPipeline()
-result = pipeline.classify_ticket('Cannot login to Snowflake')
-print(result)
-"
-```
-
-**Evaluation Framework:**
-```bash
-python triage_evaluation_full.py
-```
-
-## 📊 Key Files
+### Files explained
 
 **Core System:**
 - **`app.py`** - Complete Streamlit interface for the full system
 - **`atlan_helpdesk_pipeline.py`** - Main pipeline orchestrator integrating all components
 - **`hybrid_rag.py`** - Agentic hybrid RAG system with multi-modal retrieval
+- **`triage.py`** - Triage system for part 1 of the assignment. Gemini call to cllassify 
+- **`triage_evaluation_full.py`** - Evaluation system for triage, semantic similarity basedclustering **within** groups to test accuracydoes the clustering
 - **`comprehensive_scraper.py`** - Documentation scraper that built the knowledge base
-
-**Original Triage System:**
-- **`pipeline/main.py`** - Original classification pipeline entry point
-- **`pipeline/feature_extractor.py`** - Gemini-based ticket classification
-- **`pipeline/evaluation.py`** - Clustering and coherence evaluation
-- **`triage_evaluation_full.py`** - Enhanced evaluation framework
+- **`evaluation.ipynb`** - Evaluation for both triage and RAG system. Checks answer quality deeply and I have put my insights there as well.
 
 **Data:**
 - **`atlan_knowledge_base.json`** - Comprehensive Atlan documentation (61 docs)
 - **`sample_tickets.json`** - Test tickets for pipeline validation
+- **`embeddings_cache`** - Pre-computed embeddings of RAG KB to be used as cache so system runs smoothly. 
 
-## 🔧 Configuration
+## Other
 
-Edit configuration in:
-- **`pipeline/config.py`** - Classification and evaluation parameters
-- **`atlan_helpdesk_pipeline.py`** - Main pipeline settings
-- **`.env`** - API keys and environment variables
+- **`sample_RAG_results`** - Results of 10 sample queried questions. 
+- **`run_batch_evaluation`** - Helper function for batching at evaluation time
+- 
+- **`.env`** - Gemini API keys and environment variables
 
 Key settings:
 - Model selection (Gemini Flash vs Pro)
@@ -258,7 +211,7 @@ Key settings:
 - Retrieval fusion weights
 - Evaluation clustering parameters
 
-## 📈 Results & Performance
+## Results & Performance
 
 Detailed in evaluation.py
 
