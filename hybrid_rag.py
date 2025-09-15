@@ -13,7 +13,7 @@ from typing import List, Dict, Tuple
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
-import google.generativeai as genai
+from google import genai
 
 class QueryAnalysisAgent:
     """Analyzes queries and determines optimal retrieval strategy"""
