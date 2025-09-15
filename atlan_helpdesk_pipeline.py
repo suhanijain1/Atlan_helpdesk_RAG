@@ -70,9 +70,10 @@ class ChatbotPipeline:
             ) for ticket in ticket_data
         ]
 
+    # Use this method in your atlan_helpdesk_pipeline.py
     def run(self, query: str, ticket_id: str = None) -> PipelineResult:
         """
-        Executes the full pipeline with multi-label aware routing.
+        Executes the full pipeline, sending all tickets to the RAG system.
         """
         start_time = time.time()
         if not ticket_id:
@@ -80,34 +81,20 @@ class ChatbotPipeline:
         
         logging.info(f"Processing query for ticket [{ticket_id}]...")
         
-        # Stages 1 & 2: Triage and Validate
         triage_result = self._stage_triage(query, ticket_id)
         validation_result = self._stage_validate(triage_result)
         
-        RAG_TOPICS = {"How-to", "Product", "Best practices", "API/SDK", "SSO"}
-        primary_topic = triage_result.topics[0] if triage_result.topics else "Other"
-        
-        if primary_topic in RAG_TOPICS:
-            logging.info(f"[{ticket_id}] Topic '{primary_topic}' requires RAG. Generating direct answer.")
-            rag_response = self._stage_respond(query, triage_result)
-            final_answer = self._format_final_answer(triage_result, validation_result, rag_response)
-        else:
-            logging.info(f"[{ticket_id}] Topic '{primary_topic}' does not require RAG. Routing ticket.")
-            rag_response = {}
-            final_answer = (
-                f"Thank you for your query. Your ticket has been classified as a "
-                f"'{primary_topic}' issue and has been routed to the appropriate team for review."
-            )
+        # This simplified logic sends all tickets to RAG for intelligent handling.
+        logging.info(f"[{ticket_id}] All topics are sent to RAG for intelligent handling.")
+        rag_response = self._stage_respond(query, triage_result)
+        final_answer = self._format_final_answer(triage_result, validation_result, rag_response)
 
         total_time = time.time() - start_time
         logging.info(f"Pipeline finished for ticket [{ticket_id}] in {total_time:.2f}s.")
 
         return PipelineResult(
-            query=query,
-            triage=triage_result,
-            validation=validation_result,
-            rag_response=rag_response,
-            final_answer=final_answer,
+            query=query, triage=triage_result, validation=validation_result,
+            rag_response=rag_response, final_answer=final_answer,
             processing_time=total_time
         )
     
@@ -126,12 +113,13 @@ class ChatbotPipeline:
         logging.info(f"[{triage_result.ticket_id}] Validation complete. Status: {result.status}, Confidence: {result.confidence}")
         return result
         
-    def _stage_respond(self, query: str, triage_result: TriageResult, primary_topic: str) -> Dict[str, Any]:
-        """Calls the AgenticHybridRAG module with full context."""
+    def _stage_respond(self, query: str, triage_result: TriageResult) -> Dict[str, Any]:
+        """Calls the AgenticHybridRAG module with the correct context."""
         logging.info(f"[{triage_result.ticket_id}] Stage 3: Response Generation...")
         
         classification_context = {
             "topic": triage_result.topics[0] if triage_result.topics else "Other",
+            "all_topics": triage_result.topics,
             "priority": triage_result.priority
         }
         result = self.rag_system.answer_question(query, classification=classification_context)

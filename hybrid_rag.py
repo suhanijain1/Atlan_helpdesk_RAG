@@ -10,10 +10,12 @@ Following the exact architecture from customer_support_rag_readme.md:
 import json
 import os
 from typing import List, Dict, Tuple
+from xmlrpc import client
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 from google import genai
+from google.genai import types
 
 class QueryAnalysisAgent:
     """Analyzes queries and determines optimal retrieval strategy"""
@@ -156,9 +158,9 @@ class HybridRetriever:
             with open(f'{cache_dir}/model_info.json', 'w') as f:
                 json.dump(model_info, f)
                 
-            print("✅ Cache saved successfully.")
+            print("Cache saved successfully.")
         except Exception as e:
-            print(f"❌ Failed to save cache: {e}")
+            print(f" Failed to save cache: {e}")
     
     def _load_cached_embeddings(self) -> bool:
         """Load pre-computed embeddings if available"""
@@ -185,11 +187,11 @@ class HybridRetriever:
             # Initialize the same embedding model (needed for query encoding)
             self.embedder = SentenceTransformer(model_info['model_name'])
             
-            print(f"📦 Loaded {len(self.chunks)} cached chunks with embeddings.")
+            print(f" Loaded {len(self.chunks)} cached chunks with embeddings.")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to load cached embeddings: {e}")
+            print(f"Failed to load cached embeddings: {e}")
             return False
     
     # --- The rest of the HybridRetriever functions (_load_documents, _create_chunks_with_metadata, retrieve, etc.) remain unchanged ---
@@ -338,10 +340,10 @@ class RerankingAgent:
     """Simple reranking agent using sentence similarity"""
     
     def __init__(self):
-        print("🔧 Loading reranking model...")
+        print("Loading reranking model...")
         # Use the same embedding model for consistency and simplicity
         self.rerank_model = SentenceTransformer('multi-qa-mpnet-base-dot-v1')
-        print("✅ Reranking model loaded!")
+        print(" Reranking model loaded!")
     
     def rerank_documents(self, query: str, retrieved_docs: List[Dict], top_k: int = 10) -> List[Dict]:
         """Rerank using semantic similarity scoring"""
@@ -385,8 +387,7 @@ class CitationAwareGenerator:
     """Citation-Aware Generation using Gemini LLM only"""
     
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')  # Fast and reliable
+        self.client = genai.Client(api_key=api_key)
         
 
     def generate_response(self, query: str, reranked_docs: List[Dict]) -> Dict:
@@ -417,7 +418,13 @@ class CitationAwareGenerator:
         
         # Step 2: Create the full, improved prompt with multiple examples
         prompt = f"""You are a meticulous and precise technical support expert for a data platform called Atlan.
-Your task is to answer the user's question based *strictly* on the provided context.
+Your task is to analyze the user's question and its classified topics, and then take the correct action based on the rules below.
+
+<RULES>
+1.  **Decide Action:**
+    * If ANY of the topics include,  **HOW_TO, PRODUCT, BEST_PRACTICES, API_SDK, or SSO**, your job is to provide a direct, helpful answer based *strictly* on the provided context documents. You MUST cite your sources using `[Source X]`. If the answer is not in the context, state that.
+    * If the topics are **CONNECTOR, LINEAGE, SENSITIVE_DATA, GLOSSARY, or OTHER**, these require a human expert. You MUST NOT use the context documents. Instead, provide a polite message stating that the ticket has been routed to the appropriate team for review.
+2.  **Tone:** Your tone should always be helpful, direct, and professional.
 
 <RULES>
 1.  You MUST ground your entire answer in the provided context.
@@ -496,9 +503,10 @@ Now, answer the user's question based on the real context below.
 """
         # Step 3: Generate the response from the model
         try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = self.client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.0,  # Set to 0.0 for maximum factuality and rule-following
                     max_output_tokens=1024,
                 )
@@ -526,78 +534,51 @@ class AgenticHybridRAG:
     """Main orchestrator following your agentic hybrid RAG architecture"""
     
     def __init__(self, docs_file: str = 'atlan_knowledge_base.json'):
-        print(" Initializing Agentic Hybrid RAG System...")
+        print("🚀 Initializing Agentic Hybrid RAG System...")
         
-        # In a deployed environment, the cache MUST exist.
-        if not self._load_cached_embeddings():
-            # This error will show up in your Streamlit logs if the cache is missing
-            raise RuntimeError("CRITICAL: Embeddings cache not found. Please generate and commit the cache locally before deploying.")
-        
-        # Initialize BM25 (this is fast and should always run)
-        print(" Setting up BM25 lexical search...")
-        texts = [chunk['content'] for chunk in self.chunks]
-        tokenized_texts = [text.lower().split() for text in texts]
-        self.bm25 = BM25Okapi(tokenized_texts)
-        
-        print("Hybrid Retrieval System ready!")
-
-        # Initialize all agents
+        # This __init__ correctly creates all necessary components
         self.query_analyzer = QueryAnalysisAgent()
         self.retriever = HybridRetriever(docs_file)
         self.reranker = RerankingAgent()
         
-        # Initialize generator with Gemini
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment")
         
         self.generator = CitationAwareGenerator(api_key)
         
-        # Initialize classifier
-        #from pipeline.feature_extractor import GeminiFeatureExtractor
-        #elf.classifier = GeminiFeatureExtractor(api_key)
-        
         print("Agentic Hybrid RAG System ready!")
     
     def answer_question(self, query: str, classification: Dict = None) -> Dict:
-        """Complete agentic RAG pipeline (simplified without reranker)."""
+        """Complete agentic RAG pipeline."""
 
-        # Default classification if not provided
         if classification is None:
             classification = {'topic': 'How-to', 'priority': 'P1'}
 
-        # Step 1: Query Analysis
         analysis = self.query_analyzer.analyze_query(query, classification)
 
-        # Step 2: Multi-Modal Retrieval. We'll ask for fewer docs since we aren't reranking.
+        # Retrieve a large set of documents
         retrieved_docs = self.retriever.retrieve(
             query, 
             analysis['retrieval_strategy'], 
-            top_k=7  # Ask for the top 7 docs to get good context
+            top_k=25 
         )
 
         if not retrieved_docs:
-            return {
-                'answer': "I don't have enough information in the knowledge base to answer this question.",
-                'sources': [],
-                'pipeline_info': {
-                    'retrieval_strategy': analysis['retrieval_strategy'],
-                    'documents_retrieved': 0,
-                    'documents_reranked': 0
-                }
-            }
+            # Handle case with no retrieved docs
+            return {'answer': "I could not find any relevant information.", 'sources': [], 'pipeline_info': {}}
 
-        # Step 3: Citation-Aware Generation (using the retrieved docs directly)
-        result = self.generator.generate_response(query, retrieved_docs)
+        # Rerank to get the most relevant documents
+        reranked_docs = self.reranker.rerank_documents(query, retrieved_docs, top_k=7)
 
-        # Add pipeline information
+        # Generate the response using the best documents
+        result = self.generator.generate_response(query, reranked_docs)
+
+        # Add pipeline metadata
         result['pipeline_info'] = {
             'retrieval_strategy': analysis['retrieval_strategy'],
-            'query_type': analysis['query_type'],
-            'complexity_score': analysis['complexity_score'],
             'documents_retrieved': len(retrieved_docs),
-            'documents_reranked': len(retrieved_docs), # The number is now the same
-            'key_entities': analysis['key_entities']
+            'documents_reranked': len(reranked_docs), 
         }
 
         return result
