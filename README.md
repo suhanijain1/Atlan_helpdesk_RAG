@@ -18,9 +18,9 @@ The entire pipeline is designed to answer four fundamental questions for every s
 -   **Component**: **Agentic Hybrid RAG System** (`hybrid_rag.py`)
 -   **Answer**: Once the system understands the ticket, it acts like an expert support agent. It searches a comprehensive knowledge base of technical docs and guides to find the most relevant information. It then writes a clear, helpful, and comprehensive response, citing the exact documents it used.
 
-### 4. "How well is our AI system performing overall?"
+### 4. "How well is my AI system performing overall?"
 -   **Component**: **Batch Evaluation Framework** (`evaluation.ipynb`)
--   **Answer**: This is our offline analytics tool. It takes a large set of classified tickets and generates reports on the system's performance. It helps us answer questions like "Are our topic categories clear and distinct?" or "Which types of tickets does the AI struggle with?". This is essential for long-term improvement.
+-   **Answer**: This is my offline analytics tool. It takes a large set of classified tickets and generates reports on the system's performance. It helps me answer questions like "Are my topic categories clear and distinct?" or "Which types of tickets does the AI struggle with?". This is essential for long-term improvement.
 
 ## How It Works: A Simple 3-Step Process
 
@@ -30,7 +30,9 @@ When a new ticket arrives, the chatbot pipeline performs three steps in real-tim
 2.  **Validate & Double-Check**: It cross-references the ticket with past data to confirm its classification.
 3.  **Answer with Sources**: It finds relevant documentation and generates a detailed, trustworthy response.
 
-![Example useage](Example_working.png)
+![Example useage](working_example_api.png)
+
+![Example useage](working_example_BP.png)
 
 ## Architectural Decisions: The Story Behind the Design
 
@@ -41,46 +43,47 @@ Our goal was to build a system that was not only technically capable but also re
 ### Component 1: Intelligent Triage & Validation
 
 **Our Thought Process & Reasoning**
-The first challenge was understanding a ticket's intent. Manual reading is slow, and simple keyword-based rules are too brittle to handle the variety of customer language. We needed structured, predictable data from unstructured text. Our initial experiments with older models yielded inconsistent, free-text outputs that were difficult to parse reliably. The breakthrough came with modern LLMs that support structured outputs. We realized we could solve the consistency problem by forcing the model to fill out a predefined "form" instead of writing on a blank page.
+The first challenge was understanding a ticket's intent. Manual reading is slow, and simple keyword-based rules are too brittle to handle the variety of customer language. I needed structured, predictable data from unstructured text. my initial experiments with older models yielded inconsistent, free-text outputs that were difficult to parse reliably. The breakthrough came with modern LLMs that support structured outputs. I realized I could solve the consistency problem by forcing the model to fill out a predefined "form" instead of writing on a blank page.
 
-Furthermore, we quickly learned that forcing a ticket into a *single* category was a mistake. A customer asking about "connecting Snowflake via SSO" has two distinct problems: `Connector` and `SSO`. Forcing a single label would mean losing crucial context. We therefore designed the system to embrace this complexity and identify *all* relevant topics for a given ticket.
+Furthermore, I quickly learned that forcing a ticket into a *single* category was a mistake. A customer asking about "connecting Snowflake via SSO" has two distinct problems: `Connector` and `SSO`. Forcing a single label would mean losing crucial context. I therefore designed the system to embrace this complexity and identify *all* relevant topics for a given ticket.
 
 **Technical Implementation:**
-* **Model**: Primary Method: Gemini 1.5-8b with Pydantic JSON output for consistent classification. We chose a smaller model because this task does not require deep reasoning, making it a cost-effective choice. Ideally, for production, this would be a self-hosted, fine-tuned SLM.
+* **Model**: Primary Method: Gemini 1.5-8b with Pydantic JSON output for consistent classification. I chose a smaller model because this task does not require deep reasoning, making it a cost-effective choice. Ideally, for production, this would be a self-hosted, fine-tuned SLM.
 * **Structured Output**: The model's output is constrained to a **Pydantic schema** (`TicketFeatures`), which guarantees every classification is a valid, machine-readable object with fields for `topics` (as a list), `priority`, `sentiment`, etc.
-* **Multi-Label Classification**: The prompt explicitly instructs the model to identify one or more topics from a predefined list, ensuring we capture the full scope of the user's issue.
+* **Multi-Label Classification**: The prompt explicitly instructs the model to identify one or more topics from a predefined list, ensuring I capture the full scope of the user's issue.
 
 **Trade-offs and Future Direction:**
-* **Trade-off**: Using a state-of-the-art cloud API like Gemini provides high accuracy but comes with latency and operational costs. We are also dependent on an external service.
-* **Future Vision**: The long-term goal is to fine-tune a smaller, **self-hosted open-source model** (like Llama 3 or Mistral). By training it on our own ticket data, we could achieve comparable or even better performance at a fraction of the cost, with greater speed and full control over the infrastructure.
+* **Trade-off**: Using a state-of-the-art cloud API like Gemini provides high accuracy but comes with latency and operational costs. I are also dependent on an external service.
+* **Future Vision**: The long-term goal is to fine-tune a smaller, **self-hosted open-source model** (like Llama 3 or Mistral). By training it on my own ticket data, I could achieve comparable or even better performance at a fraction of the cost, with greater speed and full control over the infrastructure.
 
-### Component 2: Validation - Building Trust Without Labels
+### Component 2: Validation - Triage validation without golden set
+![Triage evaluation flow](triage_evaluation_flow.jpeg)
 
 **Our Thought Process & Reasoning**
-An AI classification is useless without a measure of confidence. We wanted to build a system to evaluate the triage step, much like the process described in a few industry articles. The problem was, those approaches required a large, manually labeled dataset, which we didn't have. So, we had to find another way.
+An AI classification is useless without a measure of confidence. I wanted to build a system to evaluate the triage step, much like the process described in a few industry articles. The problem was, those approaches required a large, manually labeled dataset, which I didn't have. So, I had to find another way.
 
-Our first idea was to use unsupervised clustering. The logic was simple: if we cluster all tickets classified as "SSO," they should be semantically similar to each other. We could measure the coherence of that cluster. However, we immediately ran into the multi-label problem again. A ticket tagged as both `SSO` and `Connector` would pollute both clusters, making simple coherence an unreliable metric.
+Our first idea was to use unsupervised clustering. The logic was simple: if I cluster all tickets classified as "SSO," they should be semantically similar to each other. I could measure the coherence of that cluster. However, I immediately ran into the multi-label problem again. A ticket tagged as both `SSO` and `Connector` would pollute both clusters, making simple coherence an unreliable metric.
 
-This led us to our solution: instead of checking if a ticket fits into a *pre-defined* group, let's see what *natural* group it falls into and then check if the labels make sense. We build a graph of all recent tickets, connecting those that are semantically similar. This reveals the true, underlying clusters of issues. We can then check if a ticket's assigned labels agree with the dominant labels of its natural cluster.
+This led me to my solution: instead of checking if a ticket fits into a *pre-defined* group, let's see what *natural* group it falls into and then check if the labels make sense. I build a graph of all recent tickets, connecting those that are semantically similar. This reveals the true, underlying clusters of issues. I can then check if a ticket's assigned labels agree with the dominant labels of its natural cluster.
 
 **Technical Implementation:**
-* **Semantic Embeddings**: We use a `SentenceTransformer` model to convert the salient text of each ticket into a vector embedding.
-* **Graph-Based Clustering**: We build a similarity graph using `networkx`, where nodes are tickets and weighted edges connect tickets with high cosine similarity. The connected components of this graph form our natural clusters.
+* **Semantic Embeddings**: I use a `SentenceTransformer` model to convert the salient text of each ticket into a vector embedding.
+* **Graph-Based Clustering**: I build a similarity graph using `networkx`, where nodes are tickets and weighted edges connect tickets with high cosine similarity. The connected components of this graph form my natural clusters.
 * **Coherence analysis**:  to measure how well tickets cluster by their assigned topics (Topic Coherence > 0.6).
 * **Confidence scoring**: for individual tickets based on the margin between the assigned topic and the next best alternative. This flags problematic tickets for human review (margin < 0.2 threshold).
 
 **Trade-offs and Future Direction:**
 * **Trade-off**: This unsupervised method provides a powerful *proxy* for confidence but not an absolute "correct/incorrect" score. The similarity threshold used to build the graph is a sensitive hyperparameter that requires tuning.
-* **Future Vision**: This validation system is also a powerful engine for active learning. The tickets it flags with low confidence are precisely the most valuable ones for a human to review and label. By creating a feedback loop where humans label these ambiguous tickets, we can build a high-quality dataset over time. This dataset will eventually allow us to train a much more accurate, supervised triage model.
+* **Future Vision**: This validation system is also a powerful engine for active learning. The tickets it flags with low confidence are precisely the most valuable ones for a human to review and label. By creating a feedback loop where humans label these ambiguous tickets, I can build a high-quality dataset over time. This dataset will eventually allow me to train a much more accurate, supervised triage model.
 
 ### Component 3: RAG - Agentic Hybrid RAG System
 
 **Our Thought Process & Reasoning**
-Once we understand a ticket, we need to provide an answer. Simply asking an LLM is a recipe for disaster, as they are prone to "hallucinating" incorrect information. The answer had to be grounded in facts from our official documentation. The obvious solution is Retrieval-Augmented Generation (RAG).
+Once I understand a ticket, I need to provide an answer. Simply asking an LLM is a recipe for disaster, as they are prone to "hallucinating" incorrect information. The answer had to be grounded in facts from my official documentation. The obvious solution is Retrieval-Augmented Generation (RAG).
 
-However, a basic RAG system often falls short. We found that semantic search is great for conceptual questions ("how does lineage work?"), but terrible for specific keywords, product names, or error codes. Conversely, keyword search is great for specifics but fails when users describe their problem in different terms. Relying on just one felt like a compromise. We decided we didn't have to choose. A hybrid approach that uses both methods would be far more robust.
+However, a basic RAG system often falls short. I found that semantic search is great for conceptual questions ("how does lineage work?"), but terrible for specific keywords, product names, or error codes. Conversely, keyword search is great for specifics but fails when users describe their problem in different terms. Relying on just one felt like a compromise. I decided I didn't have to choose. A hybrid approach that uses both methods would be far more robust.
 
-Finally, even with the right documents, the LLM still needs to be constrained. We designed a strict "constitution" for our generator: it must base its answer *only* on the provided sources and cite every single claim.
+Finally, even with the right documents, the LLM still needs to be constrained. I designed a strict "constitution" for my generator: it must base its answer *only* on the provided sources and cite every single claim.
 
 **Technical Implementation:**
 * **Query Analysis Agent**: Analyzes user intent to select the optimal retrieval strategy (e.g., lexical-heavy for API questions, semantic-heavy for best practices).
@@ -93,7 +96,7 @@ Finally, even with the right documents, the LLM still needs to be constrained. W
 
 **Trade-offs and Future Direction:**
 * **Trade-off**: This multi-step RAG pipeline is more complex and has higher latency than a direct LLM call. The quality of its answers is also fundamentally limited by the quality and comprehensiveness of the knowledge base. If information isn't in the docs, the bot can't answer.
-* **Future Vision**: The system could be made self-improving. By analyzing the text from successfully resolved tickets, we could automatically identify gaps in our documentation and even draft new knowledge base articles. We could also explore more advanced retrieval techniques, like breaking down complex user questions into multiple sub-queries to retrieve more precise information for each part of the problem.
+* **Future Vision**: The system could be made self-improving. By analyzing the text from successfully resolved tickets, I could automatically identify gaps in my documentation and even draft new knowledge base articles. I could also explore more advanced retrieval techniques, like breaking down complex user questions into multiple sub-queries to retrieve more precise information for each part of the problem.
 
 ---
 
