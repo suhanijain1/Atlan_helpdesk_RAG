@@ -57,7 +57,7 @@ Furthermore, I quickly learned that forcing a ticket into a *single* category wa
 * **Future Vision**: The long-term goal is to fine-tune a smaller, **self-hosted open-source model** (like Llama 3 or Mistral). By training it on my own ticket data, I could achieve comparable or even better performance at a fraction of the cost, with greater speed and full control over the infrastructure.
 
 ### Component 2: Validation - Triage validation without golden set
-![Triage evaluation flow](triage_evaluation_flow.jpeg)
+![Triage evaluation flow](triage_evaluation.jpeg)
 
 **Our Thought Process & Reasoning**
 An AI classification is useless without a measure of confidence. I wanted to build a system to evaluate the triage step, much like the process described in a few industry articles. The problem was, those approaches required a large, manually labeled dataset, which I didn't have. So, I had to find another way.
@@ -94,6 +94,7 @@ Finally, even with the right documents, the LLM still needs to be constrained. I
 
 * **Reranking Agent** : Gemini-powered response generation with a carefully engineered few-shot prompt that tracks sources and ensures every claim is attributed.
 
+![answer evaluation](answer_evaluation.jpeg)
 **Trade-offs and Future Direction:**
 * **Trade-off**: This multi-step RAG pipeline is more complex and has higher latency than a direct LLM call. The quality of its answers is also fundamentally limited by the quality and comprehensiveness of the knowledge base. If information isn't in the docs, the bot can't answer.
 * **Future Vision**: The system could be made self-improving. By analyzing the text from successfully resolved tickets, I could automatically identify gaps in my documentation and even draft new knowledge base articles. I could also explore more advanced retrieval techniques, like breaking down complex user questions into multiple sub-queries to retrieve more precise information for each part of the problem.
