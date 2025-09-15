@@ -226,6 +226,19 @@ The system is deployed with:
 - Environment-based configuration
 
 ##  References & Acknowledgments
+For problem statement 1
+•⁠  ⁠https://medium.com/@mondal.arup/enhancing-support-ticket-classification-a-hybrid-llm-ml-strategy-for-real-world-accuracy-2df0abcd9e82
+•⁠  ⁠https://docs.anthropic.com/en/docs/about-claude/use-case-guides/ticket-routing#you-need-multilingual-support-without-maintaining-separate-models -
+•⁠  ⁠https://gist.github.com/daveebbelaar/d65f30bd539a9979d9976af80ec41f07
+•⁠  ⁠https://medium.com/@shilpadeeparaj.work/building-an-ai-powered-customer-care-ticket-classification-system-70a9344b79c1
+
+For problem statement 2
+- https://medium.com/@neerajmehta15/cx-ai-agent-ce4d79320224
+-  https://medium.com/building-the-open-data-stack/how-agentic-hybrid-search-creates-smarter-rag-apps-b860417448d7 https://www.youtube.com/watch?v=p0FERNkpyHE&ab_channel=ColeMedin
+-  https://www.reddit.com/r/LocalLLaMA/comments/1gfqzs0/rag_second_brain_for_technical_docs_with_code/ 
+-  https://www.youtube.com/watch?v=Wwuz1l-PCgQ&ab_channel=SunnySavita
+-  https://superlinked.com/vectorhub/articles/optimizing-rag-with-hybrid-search-reranking
+- https://medium.com/@nadikapoudel16/advanced-rag-implementation-using-hybrid-search-reranking-with-zephyr-alpha-llm-4340b55fef22 
 
 This project builds on established patterns in:
 - Hybrid retrieval systems (BM25 + dense embeddings)
