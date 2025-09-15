@@ -30,9 +30,13 @@ When a new ticket arrives, the chatbot pipeline performs three steps in real-tim
 2.  **Validate & Double-Check**: It cross-references the ticket with past data to confirm its classification.
 3.  **Answer with Sources**: It finds relevant documentation and generates a detailed, trustworthy response.
 
+![Example useage](Example_working.png)
+
 ## Architectural Decisions: The Story Behind the Design
 
 Our goal was to build a system that was not only technically capable but also reliable and maintainable. Each component was designed through a process of identifying a core problem, exploring solutions, and making deliberate trade-offs.
+
+![Architecture diagram](architecture_diagram.png)
 
 ### Component 1: Intelligent Triage & Validation
 
