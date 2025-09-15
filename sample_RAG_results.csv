@@ -1,0 +1,386 @@
+query_id,topic,category,query_text,success,processing_time_seconds,classification_topics,classification_priority,classification_confidence,response_method,sources_count,sources_urls,response_text,response_length,generation_successful
+1,API_SDK,Authentication,What authentication methods are supported by Atlan for API access?,True,18.76,"['API_SDK', 'SSO']",P2,0.9,RAG,6,"['https://docs.atlan.com/apps/connectors/data-warehouses/databricks/how-tos/set-up-databricks', 'https://docs.atlan.com/platform/concepts/authentication-and-authorization', 'https://developer.atlan.com/snippets/access/tokens/', 'https://docs.atlan.com/tags/data', 'https://docs.atlan.com/get-started/how-tos/getting-started-with-the-apis', 'https://docs.atlan.com/apps/connectors/crm/salesforce/how-tos/oauth-client-credentials-setup']","Based on the provided documentation, Atlan supports the following authentication method for API access:
+
+*   **API Tokens:** API tokens are designed to provide programmatic access to Atlan without relying on a user's own credentials or permissions. They are distinct from personal access tokens (PATs) and are specifically for machine-to-machine or application-to-Atlan interactions.
+
+While the documentation mentions ""Basic authentication"" as a general authentication method for Atlan (for user login), it does not explicitly state that basic authentication (username/password) is supported for direct API access in the same context as API tokens for programmatic integration. The most direct and explicit method for programmatic API access highlighted is the use of API tokens.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/apps/connectors/data-warehouses/databricks/how-tos/set-up-databricks
+- https://docs.atlan.com/platform/concepts/authentication-and-authorization
+- https://developer.atlan.com/snippets/access/tokens/
+- https://docs.atlan.com/tags/data
+- https://docs.atlan.com/get-started/how-tos/getting-started-with-the-apis
+- https://docs.atlan.com/apps/connectors/crm/salesforce/how-tos/oauth-client-credentials-setup",1249,True
+2,SSO,Integration,How do I set up SSO with Okta for my organization?,True,28.45,"['SSO', 'HOW_TO']",P2,0.9,RAG,2,"['https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-okta-for-sso', 'https://docs.atlan.com/tags/data']","To set up Single Sign-On (SSO) with Okta for your organization in Atlan, you will need to perform steps in both your Atlan instance and your Okta environment. This process requires an Atlan admin user and collaboration with your Okta administrator.
+
+Here's a comprehensive guide based on the provided documentation:
+
+### Prerequisites
+
+*   You must be an **admin user** within Atlan.
+*   You will need to work with your **Okta administrator** to complete tasks within Okta.
+
+### Steps to Set Up Okta SSO
+
+The setup process involves configuring Atlan, setting up the SAML application in Okta, assigning users, and then finalizing the configuration in Atlan.
+
+#### 1. Choose SSO Provider (in Atlan)
+
+1.  From the left menu on any screen in Atlan, navigate to **Admin**.
+2.  Under the **Workspace** heading, click **SSO**.
+3.  Under **Choose SAML provider**, select **Okta**.
+4.  Click **Configure**.
+5.  Under **Service provider metadata**, copy the **Single sign on URL** and **Audience URI (SP Entity ID)**. You will need these URLs for configuring the SAML application in Okta.
+
+#### 2. Set Up SAML App (in Okta)
+
+*   **The documentation indicates that you need to set up a SAML application within Okta using the Single sign on URL and Audience URI copied from Atlan in the previous step.**
+*   **However, the provided documentation does not contain the specific, step-by-step instructions for how to create and configure the SAML application within the Okta platform itself, nor does it detail how to download Okta's metadata file.**
+*   You will need to work with your Okta administrator to perform these actions in Okta.
+
+#### 3. Download Okta's Metadata File (in Okta)
+
+*   After configuring the SAML app in Okta, your Okta administrator will need to **download the identity provider metadata file** from Okta. This XML file contains the necessary configuration details for Atlan to trust Okta as the identity provider.
+*   **The documentation does not provide instructions on how to download this file from Okta.**
+
+#### 4. Assign Users to the App (in Okta)
+
+1.  Within Okta, assign the Atlan application to the users or groups who should have access to Atlan via SSO.
+2.  If an ""Assign Atlan to Groups"" dialog appears, make the necessary selections.
+3.  Click **Save and Go Back**.
+4.  Repeat this assignment process for each user or group you wish to grant access.
+5.  When finished, click **Done** in the respective dialog box.
+
+#### 5. Upload Okta's Metadata File (in Atlan)
+
+1.  Return to your Atlan instance.
+2.  From the left menu on any screen, navigate to **Admin**.
+3.  Under the **Workspace** heading, click **SSO**.
+4.  Under **Choose SAML provider**, select **Okta** and then click **Configure**.
+5.  To the right of **Identity provider metadata**, click the **Import from XML** button.
+6.  Select the XML file that you saved from Okta (the identity provider metadata file).
+7.  At the bottom of the screen, click **Save**.
+
+Congratulations! You have successfully set up Okta SSO in Atlan.
+
+### Post-Setup Options
+
+*   **Enforce SSO:** By default, users can log into Atlan using either Okta SSO or a local Atlan account (via email). To only allow logins via SSO, you can enable the **Enforce SSO** option in Atlan. Once enforced, it is recommended to ensure your Okta administrator provisions access to users through Okta.
+*   **Configure Group Mappings (Optional):** SSO group mappings are triggered every time a user authenticates in Atlan and can be used to assign permissions to users as they sign up. **The provided documentation mentions this as an optional step but does not provide instructions on how to configure group mappings.**
+
+If you require assistance with the Okta-specific configuration steps (setting up the SAML app, downloading metadata, or configuring group mappings), please contact your Okta administrator or Atlan support for further guidance.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-okta-for-sso
+- https://docs.atlan.com/tags/data",4061,True
+3,PRODUCT,Features,What is data lineage and how does it work in Atlan?,True,26.15,"['LINEAGE', 'HOW_TO']",P2,0.9,RAG,5,"['https://developer.atlan.com/models/lineage/', 'https://docs.atlan.com/tags/impact-analysis', 'https://docs.atlan.com/tags/data', 'https://docs.atlan.com/product/capabilities/lineage', 'https://docs.atlan.com/tags/data-sources']","Data lineage in Atlan is a crucial capability that helps you understand the complete journey of your data.
+
+Here's a breakdown of what data lineage is and how it works in Atlan:
+
+**What is Data Lineage?**
+Data lineage in Atlan provides a comprehensive view of how data moves across your entire data landscape. It illustrates the upstream and downstream dependencies of an asset, showing the flow of data from its source to its destination. This understanding is critical for organizations to build trust in their data assets.
+
+**How Data Lineage Works in Atlan:**
+
+1.  **Purpose and Benefits:**
+    *   **Understanding Data Flow:** It helps you visualize and understand the data flows and transformations that your assets undergo.
+    *   **Root Cause Analysis:** Enables you to trace back issues to their origin.
+    *   **Impact Analysis:** Allows you to assess the potential impact of changes on downstream assets.
+    *   **Metadata Propagation:** Facilitates the automation of metadata propagation across connected assets.
+    *   **Building Trust:** By providing transparency into data origins and transformations, it helps build confidence in your data.
+
+2.  **Visualization and Granularity:**
+    *   **Lineage Graph:** Atlan presents lineage information through an interactive ""lineage graph,"" offering a granular view of data flows and transformations for your assets.
+    *   **Column-Level Lineage:** For a more detailed understanding, Atlan supports ""column-level lineage,"" allowing you to view dependencies at a granular field level.
+    *   **Processes and Numbers:** The lineage view incorporates concepts like ""processes"" (representing transformations or operations) and ""numbers"" (which provide additional context within the lineage graph).
+
+3.  **Interaction and Export:**
+    *   Users can actively **view** the lineage graph for any asset within Atlan.
+    *   Atlan allows you to **download and export** lineage information, enabling external use and further analysis.
+
+4.  **Underlying Structure (for developers/advanced users):**
+    *   Atlan utilizes a ""Lineage model"" and provides ""lineage snippets"" as reference documentation for those looking to understand or manage lineage programmatically.
+
+In essence, Atlan's data lineage functionality provides a powerful, visual, and detailed mechanism to track, understand, and manage the journey of your data, from its origin to its various destinations and transformations.
+
+📚 **Here are some relevant documents:**
+- https://developer.atlan.com/models/lineage/
+- https://docs.atlan.com/tags/impact-analysis
+- https://docs.atlan.com/tags/data
+- https://docs.atlan.com/product/capabilities/lineage
+- https://docs.atlan.com/tags/data-sources",2710,True
+4,CONNECTOR,Troubleshooting,My Snowflake connector keeps failing with authentication errors,True,26.84,"['CONNECTOR', 'PRODUCT']",P1,0.9,RAG,2,"['https://docs.atlan.com/apps/connectors/data-warehouses/snowflake/how-tos/set-up-snowflake', 'https://developer.atlan.com/patterns/create/insight/']","⚡ **High Priority Request**
+
+It sounds like you're encountering authentication errors with your Snowflake connector in Atlan. This is a common issue that can often be resolved by ensuring the correct authentication method is configured and that all prerequisites are met.
+
+Atlan supports several authentication methods for Snowflake. It's generally recommended to move away from basic username and password authentication for enhanced security.
+
+Here are the supported authentication methods and their configuration details:
+
+### 1. Key-Pair Authentication (Recommended)
+
+This method offers enhanced security over basic username and password.
+
+**Configuration Steps:**
+
+1.  **Create a Snowflake User with an RSA Public Key:**
+    Execute the following SQL in Snowflake, replacing `<warehouse-name>` with your desired warehouse and `'MIIBIjANBgkqh...'` with your actual RSA public key.
+    ```sql
+    CREATE USER atlan_user
+    rsa_public_key = 'MIIBIjANBgkqh...'
+    default_role = atlan_user_role
+    default_warehouse = '<warehouse-name>'
+    display_name = 'Atlan'
+    TYPE = 'SERVICE'
+    ```
+    *   The `TYPE = 'SERVICE'` property is relevant for service accounts. You can learn more about it in Snowflake's documentation.
+2.  **Grant Role to User:**
+    Ensure the `atlan_user_role` is granted to the newly created user:
+    ```sql
+    GRANT ROLE atlan_user_role TO USER atlan_user ;
+    ```
+3.  **Private Key Requirement:**
+    Atlan **only supports encrypted private keys with a non-empty passphrase**. Using an empty passphrase will result in workflow failures, as it is generally less secure.
+
+### 2. OAuth (Client Credentials Flow) with Microsoft Entra ID (formerly Azure AD)
+
+This method uses OAuth for authentication via Microsoft Entra ID.
+
+**Configuration Steps:**
+
+1.  **Register an Application in Microsoft Entra ID:**
+    Follow Snowflake's documentation to register a new application in your Microsoft Entra ID (Azure AD) tenant.
+2.  **Create a Security Integration in Snowflake:**
+    Execute the following SQL in Snowflake, replacing the placeholders with actual values from your Azure AD app:
+    ```sql
+    CREATE SECURITY INTEGRATION external_oauth_azure_ad
+    TYPE = external_oauth
+    ENABLED = true
+    EXTERNAL_OAUTH_TYPE = azure
+    EXTERNAL_OAUTH_ISSUER = '<AZURE_AD_ISSUER>'
+    EXTERNAL_OAUTH_JWS_KEYS_URL = '<AZURE_AD_JWS_KEY_ENDPOINT>'
+    EXTERNAL_OAUTH_AUDIENCE_LIST = ( '<SNOWFLAKE_APPLICATION_ID_URI>' )
+    EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'sub'
+    EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'login_name'
+    ;
+    ```
+    *   `<AZURE_AD_ISSUER>`: Your tenant's OAuth 2.0 issuer URL.
+    *   `<AZURE_AD_JWS_KEY_ENDPOINT>`: Your Azure JWKs URI.
+    *   `<SNOWFLAKE_APPLICATION_ID_URI>`: The Application ID URI of your Azure app.
+3.  **Create a Snowflake User:**
+    Create a Snowflake user whose `login_name` **exactly matches** the `sub` claim from your Azure AD application.
+4.  **Grant Role to User:**
+    Ensure the `atlan_user_role` is granted to this user:
+    ```sql
+    GRANT ROLE atlan_user_role TO USER atlan_user ;
+    ```
+
+### 3. Federated Authentication through Okta (Private Preview)
+
+This method is currently in private preview and is available if Okta is your Identity Provider (IdP).
+
+**Configuration Steps:**
+
+1.  **Create a User in your IdP (Okta):**
+    Create a user directly within your Okta instance.
+2.  **Configure Federated Authentication in Snowflake:**
+    Set up federated authentication in Snowflake to use Okta as the IdP.
+3.  **Important Considerations:**
+    *   The password for this user **must be maintained solely in the IdP (Okta)**.
+    *   **Multi-factor authentication (MFA) must be disabled** for this user.
+4.  **Grant Role to User:**
+    Ensure the `atlan_user_role` is granted to this user:
+    ```sql
+    GRANT ROLE atlan_user_role TO USER atlan_user ;
+    ```
+
+### 4. Basic Username and Password Authentication
+
+While less secure and generally not recommended, this method is also supported.
+
+**Configuration Steps:**
+
+1.  **Create a Snowflake User with a Password:**
+    Execute the following SQL in Snowflake, replacing `<password>` with a strong password:
+    ```sql
+    CREATE USER atlan_user password = '<password>' default_role = atlan_user_role default_
+    ```
+2.  **Grant Role to User:**
+    Ensure the `atlan_user_role` is granted to the newly created user:
+    ```sql
+    GRANT ROLE atlan_user_role TO USER atlan_user ;
+    ```
+
+### General Troubleshooting Tips:
+
+*   **Review Crawler Configuration:** If you have an existing Snowflake workflow, ensure you modify the crawler configuration in Atlan to update the authentication method to match your chosen setup.
+*   **Check Credentials:** Double-check all usernames, passwords, keys, and OAuth parameters for typos or incorrect values.
+*   **Permissions:** Verify that the `atlan_user_role` has all the necessary permissions to access the Snowflake objects you intend to crawl.
+*   **MFA for Service Accounts:** Remember that for federated authentication (e.g., Okta), MFA must be disabled for the service user.
+
+By carefully reviewing your current Snowflake authentication setup against these documented methods, you should be able to identify and resolve the authentication errors. If the issue persists after checking these configurations, please contact Atlan support for further assistance.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/apps/connectors/data-warehouses/snowflake/how-tos/set-up-snowflake
+- https://developer.atlan.com/patterns/create/insight/",5549,True
+5,HOW_TO,Setup,How do I create a new connection to my database?,True,38.11,"['HOW_TO', 'CONNECTOR']",P2,0.9,RAG,3,"['https://developer.atlan.com/patterns/create/gds/', 'https://developer.atlan.com/patterns/create/preset/', 'https://developer.atlan.com/patterns/create/documentdb/']","To create a new connection to your database in Atlan, you need to build a request that specifies the connection's details and then use an `AtlanClient` instance to persist this asset in your Atlan tenant.
+
+Here are the key steps and required parameters:
+
+1.  **Provide an AtlanClient Instance:** You must provide an `AtlanClient` through which to connect to your Atlan tenant. This client is essential for making the API call that creates and persists the connection asset.
+2.  **Build the Minimum Request:** Construct a request payload that includes the necessary information for your connection.
+3.  **Specify the `typeName`:** The asset type for a connection must be exactly `Connection`.
+4.  **Provide a Human-Readable Name:** Assign a descriptive name for your connection, such as `production` or `development`.
+5.  **Set the `connectorName` (Type of Connection):** This parameter defines the specific type of database or data source you are connecting to. For example, if you are connecting to a DocumentDB, the `connectorName` would be `documentdb`. Other examples include `Preset` or `Google Data Studio`.
+6.  **Define the `qualifiedName`:** This is a unique identifier for your connection. It should follow a pattern like `default/<connectorName>/<epoch>`, where `<epoch>` is the time in milliseconds at which the connection was created. For example, `default/documentdb/<epoch>`.
+7.  **List Administrators:** You must specify which users, groups, or workspace roles should have administrative privileges over this connection.
+    *   You can list `workspace roles` that should be able to administer the connection (or `None`/`null` if none). All current and future users with that workspace role will be administrators. You may need to retrieve the GUID for the admin role.
+    *   You can also specify `adminGroups` (e.g., `""group2""`) and `adminUsers` (e.g., `""jsmith""`) directly in your request.
+8.  **Call Atlan to Create the Connection:** Once your request is built, execute the API call through your `AtlanClient` to create and persist the connection asset in Atlan.
+
+After the connection is created, you can retrieve its `qualifiedName` from the response for use in subsequent calls, such as creating databases or other assets within that connection.
+
+📚 **Here are some relevant documents:**
+- https://developer.atlan.com/patterns/create/gds/
+- https://developer.atlan.com/patterns/create/preset/
+- https://developer.atlan.com/patterns/create/documentdb/",2470,True
+6,BEST_PRACTICES,Best Practices,What are the best practices for organizing data assets in the catalog?,True,23.08,['BEST_PRACTICES'],P2,0.9,RAG,7,"['https://developer.atlan.com/patterns/create/insight/', 'https://developer.atlan.com/sdks/java/', 'https://developer.atlan.com/patterns/create/preset/', 'https://developer.atlan.com/patterns/create/gds/', 'https://developer.atlan.com/sdks/kotlin/', 'https://developer.atlan.com/patterns/create/documentdb/', 'https://docs.atlan.com/tags/data-sources']","The provided documentation describes the recommended order for creating and deleting *related assets within specific data source types* (e.g., creating a connection before a database, and a database before a collection). It also lists various types of assets that can be managed.
+
+However, the documentation does not provide general best practices for *organizing* data assets within the Atlan catalog itself, such as naming conventions, tagging strategies, or hierarchical structuring beyond the inherent relationships of source systems. While Source 4 mentions ""practices for unified catalog management,"" it does not elaborate on what those practices entail.
+
+Therefore, the documentation doesn't provide this information. Please contact Atlan support for assistance with best practices for organizing data assets in the catalog.
+
+📚 **Here are some relevant documents:**
+- https://developer.atlan.com/patterns/create/insight/
+- https://developer.atlan.com/sdks/java/
+- https://developer.atlan.com/patterns/create/preset/
+- https://developer.atlan.com/patterns/create/gds/
+- https://developer.atlan.com/sdks/kotlin/
+- https://developer.atlan.com/patterns/create/documentdb/
+- https://docs.atlan.com/tags/data-sources",1217,True
+7,API_SDK,SDK Usage,How do I authenticate with the Python SDK?,True,28.64,"['API_SDK', 'HOW_TO']",P2,0.9,RAG,5,"['https://docs.atlan.com/apps/connectors/data-warehouses/snowflake/how-tos/set-up-snowflake', 'https://developer.atlan.com/getting-started/', 'https://developer.atlan.com/sdks/python/', 'https://docs.atlan.com/apps/connectors/business-intelligence/sigma/how-tos/set-up-sigma', 'https://docs.atlan.com/apps/connectors/crm/salesforce/how-tos/oauth-client-credentials-setup']","To authenticate with the Atlan Python SDK (`pyatlan`), you will need an Atlan API token and your Atlan tenant's base URL. There are two primary methods to configure the SDK with these credentials:
+
+### 1. Obtain Your Atlan API Token
+
+First, you need to generate an API token from your Atlan instance:
+
+1.  Navigate to the **Developer Access** page in your Atlan instance (often found under Administration or Settings).
+2.  Create new client credentials. During creation, ensure you select the necessary privileges, such as the **Rest API** checkbox.
+3.  Once created, copy your API key secret. This secret cannot be retrieved after the popover is closed.
+4.  **Important:** Ensure that the API token is assigned one or more personas to grant it the necessary permissions.
+
+### 2. Configure the Python SDK
+
+Once you have your API token and your Atlan tenant URL (e.g., `https://tenant.atlan.com`), you can configure the Python SDK using one of the following methods:
+
+#### Method A: Using Environment Variables
+
+You can set your Atlan API token as an environment variable. The SDK will automatically pick it up.
+
+*   Set the `ATLAN_API_KEY` environment variable to your Atlan API token.
+*   You can also provide your Atlan tenant URL through an environment variable, though the specific variable name for `base_url` isn't explicitly provided in the documentation for environment variables, it is generally recommended to set it directly in the client if not using a default.
+
+**Example (setting environment variable before running your script):**
+
+```bash
+export ATLAN_API_KEY=""your-atlan-api-token""
+# If your base_url is not picked up automatically or you need to specify it
+# export ATLAN_BASE_URL=""https://your-tenant.atlan.com""
+```
+
+Then, in your Python code, you can initialize the client without explicitly passing the `api_key` (and potentially `base_url`):
+
+```python
+from pyatlan.client.atlan import AtlanClient
+
+# The SDK will automatically pick up ATLAN_API_KEY and ATLAN_BASE_URL (if set)
+client = AtlanClient()
+```
+
+#### Method B: Directly in the `AtlanClient` Constructor
+
+You can pass your Atlan tenant URL and API token directly as parameters when initializing the `AtlanClient`.
+
+```python
+from pyatlan.client.atlan import AtlanClient
+
+# Replace with your actual Atlan tenant URL and API token
+atlan_tenant_url = ""https://your-tenant.atlan.com""
+atlan_api_token = ""your-atlan-api-token""
+
+client = AtlanClient(
+    base_url=atlan_tenant_url,
+    api_key=atlan_api_token
+)
+
+# You can now use the 'client' object to interact with Atlan
+```
+
+Both methods achieve the same result of authenticating your Python SDK client with Atlan. Choose the method that best fits your security practices and deployment environment.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/apps/connectors/data-warehouses/snowflake/how-tos/set-up-snowflake
+- https://developer.atlan.com/getting-started/
+- https://developer.atlan.com/sdks/python/
+- https://docs.atlan.com/apps/connectors/business-intelligence/sigma/how-tos/set-up-sigma
+- https://docs.atlan.com/apps/connectors/crm/salesforce/how-tos/oauth-client-credentials-setup",3135,True
+8,PRODUCT,Data Quality,How do data quality checks work in Atlan?,True,22.74,"['HOW_TO', 'PRODUCT']",P2,0.9,RAG,6,"['https://docs.atlan.com/tags/upstream-dependencies', 'https://docs.atlan.com/platform/concepts/authentication-and-authorization', 'https://docs.atlan.com/tags/databricks', 'https://docs.atlan.com/tags/monitoring', 'https://docs.atlan.com/tags/impact-analysis', 'https://docs.atlan.com/tags/data']","Atlan's approach to data quality involves a dedicated Data Quality Studio and integration capabilities to help organizations define, monitor, and enforce data quality expectations.
+
+Here's how data quality checks work in Atlan based on the provided documentation:
+
+1.  **Data Quality Studio:** Atlan provides a ""Data Quality Studio"" designed for collaboration between business and data teams. This studio enables users to define, monitor, and enforce data quality expectations across their data assets.
+2.  **Integration with External Tools:** Atlan can integrate with external data quality tools, such as Soda. When connected, Atlan crawls datasets and the associated data quality checks from these tools. These checks are then cataloged within Atlan and linked to existing assets using the dataset's association information.
+3.  **Connection-Level Configuration:** For specific data sources like Databricks, Atlan allows you to set up and configure data quality monitoring directly through the platform. This includes an option to ""Enable data quality on connection,"" suggesting that data quality features can be activated and configured for individual data source connections within Atlan.
+
+In essence, Atlan acts as a central hub for understanding and managing data quality, either by leveraging its own Data Quality Studio for collaborative definition and monitoring or by integrating and cataloging checks from existing data quality solutions.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/tags/upstream-dependencies
+- https://docs.atlan.com/platform/concepts/authentication-and-authorization
+- https://docs.atlan.com/tags/databricks
+- https://docs.atlan.com/tags/monitoring
+- https://docs.atlan.com/tags/impact-analysis
+- https://docs.atlan.com/tags/data",1781,True
+9,CONNECTOR,Integration,How do I connect Tableau to Atlan for metadata extraction?,True,11.57,"['HOW_TO', 'CONNECTOR']",P2,0.9,RAG,2,"['https://docs.atlan.com/apps/connectors/business-intelligence/tableau/how-tos/crawl-tableau', 'https://docs.atlan.com/apps/connectors/business-intelligence/tableau/troubleshooting/troubleshooting-tableau-connectivity']","To connect Tableau to Atlan for metadata extraction, you will first need to configure Tableau and, if applicable, set up a private network. Once these prerequisites are met, you can establish the connection by following these steps:
+
+**1. Select Tableau as your source:**
+*   In the top right of any screen in Atlan, navigate to **New** and then click **New Workflow**.
+*   From the list of packages, select **Tableau Assets** and click on **Setup Workflow**.
+
+**2. Choose an extraction method and provide credentials:**
+Atlan supports three methods for fetching metadata from Tableau: Direct extraction, Offline extraction, and Agent extraction.
+
+*   **Direct Extraction Method:**
+    *   In this method, Atlan connects directly to your Tableau instance to crawl metadata.
+    *   **Provide Credentials:**
+        *   For **Host Name**, enter the host name of your Tableau Online or Tableau Server instance (or the private DNS name if using a private network).
+        *   Provide any other required credentials, such as a personal access token or username/password, and any necessary SSL certificates in the recommended format.
+    *   At the bottom of the form, click the **Test Authentication** button to confirm connectivity.
+    *   If successful, click **Next**.
+
+*   **Offline Extraction Method:**
+    *   This method uses Atlan's `tableau-extractor` tool to fetch metadata. You will first need to extract the metadata yourself and then make it available in an S3 bucket.
+    *   **Provide S3 Details:**
+        *   For **Bucket name**, enter the name of your S3 bucket.
+        *   For **Bucket prefix**, enter the S3 prefix under which all the metadata files exist (e.g., `dashboards/result-0.json`, `workbooks/result-0.json`).
+        *   (Optional) For **Bucket region**, enter the name of the S3 region.
+    *   When complete, click **Next**.
+
+*   **Agent Extraction Method:**
+    *   This method uses Atlan's Secure Agent to execute metadata extraction within your organization's environment.
+    *   To use a Secure Agent, you will need to select this option and follow the specific steps provided in the Atlan UI for Secure Agent setup, which typically involves deploying and configuring the agent within your network.
+
+After selecting your preferred method and providing the necessary details, you can proceed with the workflow setup to complete the metadata extraction process.
+
+📚 **Here are some relevant documents:**
+- https://docs.atlan.com/apps/connectors/business-intelligence/tableau/how-tos/crawl-tableau
+- https://docs.atlan.com/apps/connectors/business-intelligence/tableau/troubleshooting/troubleshooting-tableau-connectivity",2653,True
+10,SSO,Configuration,What SAML attributes are required for user mapping?,True,11.85,"['SSO', 'HOW_TO']",P2,0.9,RAG,5,"['https://developer.atlan.com/models/entities/dbtcolumnprocess/', 'https://developer.atlan.com/models/entities/dynamodbglobalsecondaryindex/', 'https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-onelogin-for-sso', 'https://developer.atlan.com/models/entities/authservice/', 'https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-saml-2-0-for-sso']","I apologize, but I encountered an error while generating the response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The model is overloaded. Please try again later.', 'status': 'UNAVAILABLE'}}
+
+📚 **Here are some relevant documents:**
+- https://developer.atlan.com/models/entities/dbtcolumnprocess/
+- https://developer.atlan.com/models/entities/dynamodbglobalsecondaryindex/
+- https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-onelogin-for-sso
+- https://developer.atlan.com/models/entities/authservice/
+- https://docs.atlan.com/product/integrations/identity-management/sso/how-tos/enable-saml-2-0-for-sso",644,False
