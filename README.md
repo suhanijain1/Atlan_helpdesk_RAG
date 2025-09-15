@@ -147,14 +147,6 @@ Finally, even with the right documents, the LLM still needs to be constrained. I
 3. **Automatic Categorization:** Classified documents by topic based on URL patterns and content analysis
 4. **Quality Filtering:** Only retained documents with substantial content (>500 characters)
 5. **Deduplication:** Removed duplicate documents based on URL matching
-
-**Sources Scraped:**
-- **SSO Documentation** (6 core URLs → 25 docs): Complete setup guides for Azure AD, Okta, Google, SAML
-- **API/SDK Documentation** (7 developer URLs → 21 docs): Getting started guides, SDK references, code examples
-- **Product Documentation** (7 core URLs → 5 docs): Feature overviews, capabilities, workflows
-- **How-to Guides** (6 URLs → 6 docs): Step-by-step setup instructions for connectors
-- **Best Practices** (4 URLs → 4 docs): Administration and governance guidelines
-
 **Technical Implementation:**
 ```python
 # Example from comprehensive_scraper.py
