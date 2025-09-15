@@ -117,14 +117,31 @@ class ChatbotPipeline:
         """Calls the AgenticHybridRAG module with the correct context."""
         logging.info(f"[{triage_result.ticket_id}] Stage 3: Response Generation...")
         
-        classification_context = {
-            "topic": triage_result.topics[0] if triage_result.topics else "Other",
-            "all_topics": triage_result.topics,
-            "priority": triage_result.priority
-        }
-        result = self.rag_system.answer_question(query, classification=classification_context)
-        logging.info(f"[{triage_result.ticket_id}] Response generated with {len(result.get('sources', []))} sources.")
-        return result
+        try:
+            classification_context = {
+                "topic": triage_result.topics[0] if triage_result.topics else "Other",
+                "all_topics": triage_result.topics,
+                "priority": triage_result.priority
+            }
+            result = self.rag_system.answer_question(query, classification=classification_context)
+            
+            # Ensure result is a valid dictionary
+            if not isinstance(result, dict):
+                logging.error(f"[{triage_result.ticket_id}] RAG system returned invalid result type: {type(result)}")
+                return {'answer': "I encountered an issue generating a response.", 'sources': []}
+            
+            # Ensure required keys exist
+            if 'answer' not in result:
+                result['answer'] = "I couldn't find a specific answer to your question."
+            if 'sources' not in result:
+                result['sources'] = []
+                
+            logging.info(f"[{triage_result.ticket_id}] Response generated with {len(result.get('sources', []))} sources.")
+            return result
+            
+        except Exception as e:
+            logging.error(f"[{triage_result.ticket_id}] Error in response generation: {e}")
+            return {'answer': "I encountered an issue generating a response.", 'sources': []}
 
     def _format_final_answer(
         self, 
@@ -133,28 +150,50 @@ class ChatbotPipeline:
         rag: Dict[str, Any]
     ) -> str:
         """Creates a final, user-friendly response string from all pipeline stages."""
-        answer_parts = []
+        try:
+            answer_parts = []
 
-        # 1. Add priority context
-        if triage.priority == "P0":
-            answer_parts.append("**URGENT ISSUE DETECTED**")
-        elif triage.priority == "P1":
-            answer_parts.append("⚡ **High Priority Request**")
+            # 1. Add priority context
+            if triage.priority == "P0":
+                answer_parts.append("**URGENT ISSUE DETECTED**")
+            elif triage.priority == "P1":
+                answer_parts.append("⚡ **High Priority Request**")
 
-        # 2. Add the main answer from the RAG system
-        answer_parts.append(rag.get('answer', "I couldn't find a specific answer, but I can offer some general guidance."))
+            # 2. Add the main answer from the RAG system
+            rag_answer = rag.get('answer') if rag else None
+            if rag_answer and str(rag_answer).strip():  # Only add if not None or empty
+                answer_parts.append(str(rag_answer))
+            else:
+                answer_parts.append("I couldn't find a specific answer, but I can offer some general guidance.")
 
-        # 3. Add sources if available
-        sources = rag.get('sources', [])
-        if sources:
-            source_list = "\n".join([f"- {src}" for src in sources])
-            answer_parts.append(f"\n📚 **Here are some relevant documents:**\n{source_list}")
-        
-        # 4. Add a confidence note if validation was low
-        if validation.confidence == 'low' or validation.status == 'disagreement':
-            answer_parts.append("\n⚠️ *Our system had low confidence in categorizing this query, so the information above might be general. If this doesn't solve your issue, please provide more details.*")
+            # 3. Add sources if available
+            sources = rag.get('sources', []) if rag else []
+            if sources:
+                valid_sources = [str(src) for src in sources if src and str(src).strip()]
+                if valid_sources:
+                    source_list = "\n".join([f"- {src}" for src in valid_sources])
+                    answer_parts.append(f"\n📚 **Here are some relevant documents:**\n{source_list}")
+            
+            # 4. Add a confidence note if validation was low
+            if validation and (validation.confidence == 'low' or validation.status == 'disagreement'):
+                answer_parts.append("\n⚠️ *Our system had low confidence in categorizing this query, so the information above might be general. If this doesn't solve your issue, please provide more details.*")
 
-        return "\n\n".join(answer_parts)
+            # Filter out any None or empty strings before joining
+            valid_answer_parts = []
+            for part in answer_parts:
+                if part is not None:
+                    part_str = str(part).strip()
+                    if part_str:
+                        valid_answer_parts.append(part_str)
+            
+            if not valid_answer_parts:
+                return "I apologize, but I encountered an issue generating a response. Please try again or contact support."
+            
+            return "\n\n".join(valid_answer_parts)
+            
+        except Exception as e:
+            logging.error(f"Error formatting final answer: {e}")
+            return "I apologize, but I encountered an issue generating a response. Please try again or contact support."
 
 
 if __name__ == '__main__':

@@ -416,90 +416,45 @@ class CitationAwareGenerator:
         
         context_text = "\n".join(context_parts)
         
-        # Step 2: Create the full, improved prompt with multiple examples
-        prompt = f"""You are a meticulous and precise technical support expert for a data platform called Atlan.
-Your task is to analyze the user's question and its classified topics, and then take the correct action based on the rules below.
+        # Step 2: Create a thinking-focused prompt that emphasizes understanding and removes meaningless citations
+        prompt = f"""You are an expert technical support specialist for Atlan, a data platform. Your job is to analyze the provided documentation and give comprehensive, helpful answers.
 
-<RULES>
-1.  **Decide Action:**
-    * If ANY of the topics include,  **HOW_TO, PRODUCT, BEST_PRACTICES, API_SDK, or SSO**, your job is to provide a direct, helpful answer based *strictly* on the provided context documents. You MUST cite your sources using `[Source X]`. If the answer is not in the context, state that.
-    * If the topics are **CONNECTOR, LINEAGE, SENSITIVE_DATA, GLOSSARY, or OTHER**, these require a human expert. You MUST NOT use the context documents. Instead, provide a polite message stating that the ticket has been routed to the appropriate team for review.
-2.  **Tone:** Your tone should always be helpful, direct, and professional.
+**INSTRUCTIONS:**
+1. **Think deeply about the question** - Carefully analyze what the user is really asking for
+2. **Study the documentation thoroughly** - Read through all the provided context to understand the complete picture
+3. **Synthesize and connect concepts** - Combine information from multiple parts of the documentation to provide a complete answer
+4. **Be specific and actionable** - Give clear steps, explanations, and concrete details
+5. **Answer confidently** - If the documentation contains the information, provide a direct, comprehensive answer
+6. **Be honest about limitations** - If the documentation doesn't contain the answer, clearly state "The documentation doesn't provide this information. Please contact Atlan support for assistance."
 
-<RULES>
-1.  You MUST ground your entire answer in the provided context.
-2.  You MUST cite every single factual claim by appending `[Source X]` to the end of the sentence. `X` corresponds to the source number from the context.
-3.  If the context does not contain the answer, you MUST state that the information is not available in the provided documentation. DO NOT use outside knowledge.
-4.  DO NOT combine information from multiple sources into a single sentence. Each sentence should only reference facts from one source.
-5.  Your tone should be helpful, direct, and professional.
-</RULES>
+**TONE:** Professional, knowledgeable, and helpful. Think like an expert who thoroughly understands both the user's needs and the platform capabilities.
 
-Here are some examples of how to respond correctly:
-<EXAMPLES>
+**THINKING APPROACH:**
+- First, understand what the user wants to accomplish
+- Then, identify all relevant information in the documentation  
+- Finally, organize that information into a clear, step-by-step response
 
-<EXAMPLE 1: Procedural Question>
-<CONTEXT>
-[Source 1: https://docs.atlan.com/lineage]
-To view lineage, navigate to the asset's profile. The lineage tab is located next to the overview tab.
+**EXAMPLES:**
 
-[Source 2: https://docs.atlan.com/columns]
-Column-level lineage can be viewed by clicking on a column name within the asset's schema view.
-</CONTEXT>
-<QUESTION>
-How do I see column-level lineage?
-</QUESTION>
-<ANSWER>
-To view lineage for an asset, you can go to its profile and click on the lineage tab [Source 1]. For column-level lineage specifically, you must click on a column's name in the schema view [Source 2].
-</ANSWER>
-</EXAMPLE 1>
+**Example 1: API Authentication Question**
+Context: "Atlan supports API tokens for authentication. Generate tokens from Settings > API Tokens. Use Bearer authentication with your API token in requests."
+Question: How do I authenticate with the Atlan API?
+Answer: Atlan uses API token-based authentication. To authenticate with the API, first generate an API token by going to Settings > API Tokens in your Atlan instance. Once you have your token, use Bearer authentication by including it in the Authorization header of your API requests (e.g., `Authorization: Bearer your-token-here`).
 
+**Example 2: SSO Setup Question**  
+Context: "Configure Okta SSO by setting the Single sign-on URL to your Atlan instance URL followed by /api/auth/sso/okta. Enable SCIM provisioning by providing the SCIM endpoint URL."
+Question: How do I set up Okta SSO?
+Answer: To set up Okta SSO with Atlan, configure your Okta application with the Single sign-on URL pointing to your Atlan instance URL followed by /api/auth/sso/okta. For automatic user provisioning, you can also enable SCIM by configuring the SCIM endpoint URL in your Okta settings.
 
-<EXAMPLE 2: Answer Not Found in Context>
-<CONTEXT>
-[Source 1: https://docs.atlan.com/sso/okta]
-To configure Okta SSO, you need the 'Single sign-on URL' from Atlan. This URL is also known as the Assertion Consumer Service (ACS) URL.
+Now carefully analyze the documentation and provide a thoughtful answer:
 
-[Source 2: https://docs.atlan.com/sso/azure]
-For Azure AD, you must provide the 'Audience URI'. This is typically your Atlan instance URL.
-</CONTEXT>
-<QUESTION>
-What is the session timeout for Okta SSO?
-</QUESTION>
-<ANSWER>
-The provided documentation describes how to configure Okta SSO using the 'Single sign-on URL' [Source 1]. However, the context does not contain information about the specific session timeout duration for Okta SSO integrations [Source 1, 2].
-</ANSWER>
-</EXAMPLE 2>
-
-
-<EXAMPLE 3: Troubleshooting Question>
-<CONTEXT>
-[Source 1: https://docs.atlan.com/integrations/dbt]
-For dbt Cloud integrations, you must provide a valid read-only service account token.
-
-[Source 2: https://docs.atlan.com/integrations/dbt]
-For dbt Core, Atlan requires both the `manifest.json` and `catalog.json` files to be uploaded to build lineage.
-</CONTEXT>
-<QUESTION>
-My dbt lineage is missing, what should I check?
-</QUESTION>
-<ANSWER>
-To troubleshoot missing dbt lineage, the steps depend on your dbt setup [Source 1, 2]. If you are using dbt Cloud, you must ensure that a valid read-only service token has been provided [Source 1]. If you are using dbt Core, you need to verify that both the `manifest.json` and `catalog.json` files have been uploaded correctly [Source 2].
-</ANSWER>
-</EXAMPLE 3>
-
-</EXAMPLES>
-
-Now, answer the user's question based on the real context below.
-
-<CONTEXT>
+**DOCUMENTATION:**
 {context_text}
-</CONTEXT>
 
-<QUESTION>
+**QUESTION:**
 {query}
-</QUESTION>
 
-<ANSWER>
+**YOUR ANALYSIS AND ANSWER:**
 """
         # Step 3: Generate the response from the model
         try:
@@ -507,8 +462,8 @@ Now, answer the user's question based on the real context below.
                 model='gemini-2.5-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.0,  # Set to 0.0 for maximum factuality and rule-following
-                    max_output_tokens=1024,
+                    temperature=0.0,  # Increased from 0.0 for more confident, natural responses
+                    max_output_tokens=3000,
                 )
             )
             
