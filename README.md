@@ -19,7 +19,7 @@ The entire pipeline is designed to answer four fundamental questions for every s
 -   **Answer**: Once the system understands the ticket, it acts like an expert support agent. It searches a comprehensive knowledge base of technical docs and guides to find the most relevant information. It then writes a clear, helpful, and comprehensive response, citing the exact documents it used.
 
 ### 4. "How well is our AI system performing overall?"
--   **Component**: **Batch Evaluation Framework** (`run_batch_evaluation.py`)
+-   **Component**: **Batch Evaluation Framework** (`evaluation.ipynb`)
 -   **Answer**: This is our offline analytics tool. It takes a large set of classified tickets and generates reports on the system's performance. It helps us answer questions like "Are our topic categories clear and distinct?" or "Which types of tickets does the AI struggle with?". This is essential for long-term improvement.
 
 ## How It Works: A Simple 3-Step Process
@@ -30,112 +30,97 @@ When a new ticket arrives, the chatbot pipeline performs three steps in real-tim
 2.  **Validate & Double-Check**: It cross-references the ticket with past data to confirm its classification.
 3.  **Answer with Sources**: It finds relevant documentation and generates a detailed, trustworthy response.
 
+## Architectural Decisions: The Story Behind the Design
+
+Our goal was to build a system that was not only technically capable but also reliable and maintainable. Each component was designed through a process of identifying a core problem, exploring solutions, and making deliberate trade-offs.
+
+### Component 1: Intelligent Triage & Validation
+
+**Our Thought Process & Reasoning**
+The first challenge was understanding a ticket's intent. Manual reading is slow, and simple keyword-based rules are too brittle to handle the variety of customer language. We needed structured, predictable data from unstructured text. Our initial experiments with older models yielded inconsistent, free-text outputs that were difficult to parse reliably. The breakthrough came with modern LLMs that support structured outputs. We realized we could solve the consistency problem by forcing the model to fill out a predefined "form" instead of writing on a blank page.
+
+Furthermore, we quickly learned that forcing a ticket into a *single* category was a mistake. A customer asking about "connecting Snowflake via SSO" has two distinct problems: `Connector` and `SSO`. Forcing a single label would mean losing crucial context. We therefore designed the system to embrace this complexity and identify *all* relevant topics for a given ticket.
+
+**Technical Implementation:**
+* **Model**: Primary Method: Gemini 1.5-8b with Pydantic JSON output for consistent classification. We chose a smaller model because this task does not require deep reasoning, making it a cost-effective choice. Ideally, for production, this would be a self-hosted, fine-tuned SLM.
+* **Structured Output**: The model's output is constrained to a **Pydantic schema** (`TicketFeatures`), which guarantees every classification is a valid, machine-readable object with fields for `topics` (as a list), `priority`, `sentiment`, etc.
+* **Multi-Label Classification**: The prompt explicitly instructs the model to identify one or more topics from a predefined list, ensuring we capture the full scope of the user's issue.
+
+**Trade-offs and Future Direction:**
+* **Trade-off**: Using a state-of-the-art cloud API like Gemini provides high accuracy but comes with latency and operational costs. We are also dependent on an external service.
+* **Future Vision**: The long-term goal is to fine-tune a smaller, **self-hosted open-source model** (like Llama 3 or Mistral). By training it on our own ticket data, we could achieve comparable or even better performance at a fraction of the cost, with greater speed and full control over the infrastructure.
+
+### Component 2: Validation - Building Trust Without Labels
+
+**Our Thought Process & Reasoning**
+An AI classification is useless without a measure of confidence. We wanted to build a system to evaluate the triage step, much like the process described in a few industry articles. The problem was, those approaches required a large, manually labeled dataset, which we didn't have. So, we had to find another way.
+
+Our first idea was to use unsupervised clustering. The logic was simple: if we cluster all tickets classified as "SSO," they should be semantically similar to each other. We could measure the coherence of that cluster. However, we immediately ran into the multi-label problem again. A ticket tagged as both `SSO` and `Connector` would pollute both clusters, making simple coherence an unreliable metric.
+
+This led us to our solution: instead of checking if a ticket fits into a *pre-defined* group, let's see what *natural* group it falls into and then check if the labels make sense. We build a graph of all recent tickets, connecting those that are semantically similar. This reveals the true, underlying clusters of issues. We can then check if a ticket's assigned labels agree with the dominant labels of its natural cluster.
+
+**Technical Implementation:**
+* **Semantic Embeddings**: We use a `SentenceTransformer` model to convert the salient text of each ticket into a vector embedding.
+* **Graph-Based Clustering**: We build a similarity graph using `networkx`, where nodes are tickets and weighted edges connect tickets with high cosine similarity. The connected components of this graph form our natural clusters.
+* **Coherence analysis**:  to measure how well tickets cluster by their assigned topics (Topic Coherence > 0.6).
+* **Confidence scoring**: for individual tickets based on the margin between the assigned topic and the next best alternative. This flags problematic tickets for human review (margin < 0.2 threshold).
+
+**Trade-offs and Future Direction:**
+* **Trade-off**: This unsupervised method provides a powerful *proxy* for confidence but not an absolute "correct/incorrect" score. The similarity threshold used to build the graph is a sensitive hyperparameter that requires tuning.
+* **Future Vision**: This validation system is also a powerful engine for active learning. The tickets it flags with low confidence are precisely the most valuable ones for a human to review and label. By creating a feedback loop where humans label these ambiguous tickets, we can build a high-quality dataset over time. This dataset will eventually allow us to train a much more accurate, supervised triage model.
+
+### Component 3: RAG - Agentic Hybrid RAG System
+
+**Our Thought Process & Reasoning**
+Once we understand a ticket, we need to provide an answer. Simply asking an LLM is a recipe for disaster, as they are prone to "hallucinating" incorrect information. The answer had to be grounded in facts from our official documentation. The obvious solution is Retrieval-Augmented Generation (RAG).
+
+However, a basic RAG system often falls short. We found that semantic search is great for conceptual questions ("how does lineage work?"), but terrible for specific keywords, product names, or error codes. Conversely, keyword search is great for specifics but fails when users describe their problem in different terms. Relying on just one felt like a compromise. We decided we didn't have to choose. A hybrid approach that uses both methods would be far more robust.
+
+Finally, even with the right documents, the LLM still needs to be constrained. We designed a strict "constitution" for our generator: it must base its answer *only* on the provided sources and cite every single claim.
+
+**Technical Implementation:**
+* **Query Analysis Agent**: Analyzes user intent to select the optimal retrieval strategy (e.g., lexical-heavy for API questions, semantic-heavy for best practices).
+
+
+* **Hybrid Retrieval**: Combines traditional **BM25 (keyword search)** for precision and **dense vector embeddings (semantic search)** for intent. This combination showed a 20-25% improvement in retrieval coverage versus either method alone.
+* **Reciprocal Rank Fusion (RRF)**: Intelligently merges results from both retrieval methods, prioritizing documents that rank highly in both lists.
+
+* **Reranking Agent** : Gemini-powered response generation with a carefully engineered few-shot prompt that tracks sources and ensures every claim is attributed.
+
+**Trade-offs and Future Direction:**
+* **Trade-off**: This multi-step RAG pipeline is more complex and has higher latency than a direct LLM call. The quality of its answers is also fundamentally limited by the quality and comprehensiveness of the knowledge base. If information isn't in the docs, the bot can't answer.
+* **Future Vision**: The system could be made self-improving. By analyzing the text from successfully resolved tickets, we could automatically identify gaps in our documentation and even draft new knowledge base articles. We could also explore more advanced retrieval techniques, like breaking down complex user questions into multiple sub-queries to retrieve more precise information for each part of the problem.
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.8+
-- API access to Google Gemini (free tier works)
+- API access to Google Gemini
 
 ### Local Setup
+1.  **Clone and navigate to the project:**
+    ```bash
+    git clone [https://github.com/suhanijain1/Atlan_helpdesk_RAG.git](https://github.com/suhanijain1/Atlan_helpdesk_RAG.git)
+    cd atlan
+    ```
+2.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  **Set up environment variables:**
+    ```bash
+    cp .env.template .env
+    # Add your Gemini API key to the new .env file
+    ```
+4.  **Run the system:**
+    ```bash
+    streamlit run app.py 
+    ```
 
-1. **Clone and navigate to the project:**
-```bash
-git clone https://github.com/suhanijain1/Atlan_helpdesk_RAG.git
-cd atlan
-```
 
-2. **Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
-
-3. **Download required NLTK data:**
-```bash
-python -c "import nltk; nltk.download('punkt')"
-```
-
-4. **Set up environment variables:**
-```bash
-# Create .env file
-cp .env.template .env
-
-# Add your Gemini API key to .env
-echo "GEMINI_API_KEY=your_api_key_here" >> .env
-```
-
-5. **Run the system:**
-```bash
-# Launch the complete Streamlit interface
-streamlit run app.py 
-```
-
-## Project Architecture
-
-The system consists of three main components that work together:
-
-### **Component 1: Intelligent Triage & Validation**
-* **Goal:** To understand "What is this ticket about?" and "How confident are we?"
-* **Implementation:** `triage.py` analyzes each ticket to determine its **topic**, **sentiment**, and **priority**. A unique validation step then compares the new ticket to historical data to provide a real-time confidence score, flagging ambiguous queries.
-
-- **Primary Method:** Gemini 1.5-8b with pydantic JSON output for consistent classification (used a smaller model since low cost and this task does not need reasoning. Ideally would use a self hosted SLM)
-- **Classification Dimensions:**
-  - **Topic:** SSO, API/SDK, How-to, Product, Best Practices  
-  - **Sentiment:** Positive, Negative, Neutral
-  - **Priority:** P0 (Critical), P1 (High), P2 (Normal)
-  - **Entities:** Extracted relevant product/feature names
-
-**Example Output:**
-```json
-{
-  "topic": "SSO",
-  "sentiment": "Negative", 
-  "priority": "P0",
-  "entities": ["Azure AD", "SAML"],
-  "urgency_score": 8.5
-}
-```
-Because our evaluation in 'evaluation.ipynb' revealed that many tickets are inherently multi-label,Iadapted our pipeline to embrace this complexity instead of forcing a single, often incomplete, classification. This makes our routing smarter and our final answers more comprehensive. To achieve this,Iimplemented the following changes:
-
-- Priority-Based Routing: Instead of routing based on only the first topic detected, the pipeline now uses a defined priority order (e.g., API/SDK > SSO > Product). This ensures that tickets with multiple topics are always routed to the most appropriate specialist team.
-
-- Composite RAG Context: The full list of detected topics is now passed to the RAG system. This gives the generator richer context, allowing it to synthesize answers that address all facets of a user's complex query.
-
-- Adjusted Evaluation:Inow recognize that a low "Classification Margin" is not a failure, but an indicator of a valid multi-label ticket. Our success metrics will shift to focus on recall (i.e., "were all the correct topics identified?") rather than single-topic precision.
-
-This approach fully leverages the nuanced understanding of our LLM classifier and better reflects the reality of customer support issues.
-
-### **Component 2: Agentic Hybrid RAG System**
-* **Goal:** To find and synthesize the correct answer.
-* **Implementation:** A sophisticated Retrieval-Augmented Generation pipeline (`hybrid_rag.py`) that:
-    1.  **Analyzes** the query to determine the best search strategy.
-    2.  **Retrieves** relevant documents from a knowledge base using a hybrid approach (keyword search + semantic search).
-    3.  **Generates** a final, human-readable answer using a powerful prompt, ensuring every claim is cited with its source.
-
-**Teqniques:**
-- **Clustering-based validation** using sentence transformers and KMeans
-- **Coherence analysis** measuring how well tickets cluster by their assigned topics
-- **Separation analysis** identifying overlapping or unclear categories
-- **Confidence scoring** for individual ticket classifications
-
-**Key Metrics:**
-- **Topic Coherence:** Cosine similarity within topic clusters (0.6-0.9 range)
-- **Separation Ratio:** Distance between topic centroids (>1.2 indicates clear separation)
-- **Classification Confidence:** Based on margin between assigned and best alternative topic
-
-**Output:** Detailed evaluation reports in `evaluation.ipynb/` with visualizations and conclusions
-
-### Component 3: Agentic Hybrid RAG System
-
-**Goal:** Generate comprehensive, accurate responses with proper source attribution.
-
-**Architecture:**
-- **Query Analysis Agent:** Analyzes user intent and selects retrieval strategy
-- **Hybrid Retrieval System:** Combines BM25 (keyword) + Semantic (embedding) search
-- **Reciprocal Rank Fusion:** Merges results from both retrieval methods
-- **Reranking Agent:** Uses sentence transformers to reorder results by relevance
-- **Citation-Aware Generator:** Gemini-powered response generation with source tracking
-
+### Knowledge Base Creation Process
 **Knowledge Base:** 61 comprehensive documents covering:
 - SSO Integration (25 docs) - Azure AD, Okta, Google, SAML setup guides
 - API/SDK Documentation (21 docs) - Developer guides, code examples
@@ -143,7 +128,6 @@ This approach fully leverages the nuanced understanding of our LLM classifier an
 - How-to Guides (6 docs) - Step-by-step instructions
 - Best Practices (4 docs) - Governance and administration guidance
 
-### Knowledge Base Creation Process
 
 **Challenge:** Building a comprehensive knowledge base required systematically scraping Atlan's documentation across multiple domains.
 
@@ -270,73 +254,17 @@ Key settings:
 - Retrieval fusion weights
 - Evaluation clustering parameters
 
-## ⚠️ Technical Decisions & Tradeoffs
-
-### Classification Approach
-**WhatIChose:** Gemini-based classification with structured JSON output
-**Why:** Guarantees coverage (every ticket gets classified) and provides consistent structure
-**Alternative Considered:** Pure clustering approach
-**Tradeoff:** Clustering alone was unreliable on short/noisy text, often producing 0-3 coherent clusters from 20+ expected topics
-
-### Model Selection  
-**Primary Model:** Gemini 1.5 Flash
-**Why:** JSON mode support, good performance, cost-effective
-**Consideration:** Would migrate to self-hosted model for production scale
-
-### Retrieval Strategy
-**WhatIChose:** Hybrid (BM25 + Semantic) with Reciprocal Rank Fusion
-**Why:** Combines exact match capabilities with semantic understanding
-**Performance:** 20-25% improvement vs single-method retrieval
-**Tradeoff:** Added latency from dual retrieval passes
-
-### Evaluation Method
-**WhatIChose:** Clustering-based validation with coherence metrics
-**Why:** Provides quantifiable measures of classification quality
-**Output:** Flags problematic tickets for human review (margin < 0.2 threshold)
-
-## 🔮 Future Enhancements
-
-**Potential Improvements:**
-- **Batch Processing:** Current system processes queries sequentially; batch processing could improve throughput
-- **Advanced Caching:** Implement result caching for frequently asked questions
-- **Multi-language Support:** Extend classification and response generation to non-English queries  
-- **Real-time Learning:** Incorporate user feedback to improve classification accuracy over time
-- **Integration APIs:** Build REST/GraphQL APIs for integration with existing support systems
-
-**Scalability Considerations:**
-- **Model Optimization:** Fine-tune models on domain-specific data for improved accuracy
-- **Distributed Processing:** Scale retrieval across multiple nodes for larger knowledge bases
-- **Monitoring Dashboard:** Add comprehensive analytics for system performance tracking
-- **A/B Testing Framework:** Compare different classification and retrieval strategies
-
-**Production Readiness:**
-- **Load Balancing:** Handle multiple concurrent users
-- **Database Integration:** Replace JSON files with proper database storage
-- **Security:** Add authentication, rate limiting, and data privacy controls
-- **Deployment Automation:** CI/CD pipelines for seamless updates
-
 ## 📈 Results & Performance
 
-**Classification Coverage:** 
-**Retrieval Improvement:** 20-25% better coverage vs single-method approaches
-**Knowledge Base:** 61 documents with comprehensive topic coverage
-**Evaluation Accuracy:** Successfully identifies low-confidence classifications for review
-
-**Response Quality Examples:**
-- SSO queries → Detailed setup guides with configuration steps
-- API questions → Code examples and endpoint documentation  
-- How-to requests → Step-by-step instructions with prerequisites
+Detailed in evaluation.py
 
 ## Deployment
 
 The system is deployed with:
-- Streamlit web interface for easy access
-- Comprehensive error handling and logging
-- Modular architecture for easy maintenance
-- Docker containerization support
+- Streamlit community
 - Environment-based configuration
 
-## 📚 References & Acknowledgments
+##  References & Acknowledgments
 
 This project builds on established patterns in:
 - Hybrid retrieval systems (BM25 + dense embeddings)
