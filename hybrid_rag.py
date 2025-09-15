@@ -526,8 +526,21 @@ class AgenticHybridRAG:
     """Main orchestrator following your agentic hybrid RAG architecture"""
     
     def __init__(self, docs_file: str = 'atlan_knowledge_base.json'):
-        print("🚀 Initializing Agentic Hybrid RAG System...")
+        print(" Initializing Agentic Hybrid RAG System...")
         
+        # In a deployed environment, the cache MUST exist.
+        if not self._load_cached_embeddings():
+            # This error will show up in your Streamlit logs if the cache is missing
+            raise RuntimeError("CRITICAL: Embeddings cache not found. Please generate and commit the cache locally before deploying.")
+        
+        # Initialize BM25 (this is fast and should always run)
+        print(" Setting up BM25 lexical search...")
+        texts = [chunk['content'] for chunk in self.chunks]
+        tokenized_texts = [text.lower().split() for text in texts]
+        self.bm25 = BM25Okapi(tokenized_texts)
+        
+        print("Hybrid Retrieval System ready!")
+
         # Initialize all agents
         self.query_analyzer = QueryAnalysisAgent()
         self.retriever = HybridRetriever(docs_file)

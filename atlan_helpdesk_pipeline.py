@@ -84,33 +84,19 @@ class ChatbotPipeline:
         triage_result = self._stage_triage(query, ticket_id)
         validation_result = self._stage_validate(triage_result)
         
-        # --- NEW: Multi-Label Aware Routing Logic ---
         RAG_TOPICS = {"How-to", "Product", "Best practices", "API/SDK", "SSO"}
-        # Define a priority order. The first match in this list will be the primary topic.
-        TOPIC_PRIORITY_ORDER = [
-            "API/SDK", "SSO", "Lineage", "Connector", 
-            "Sensitive data", "Product", "Best practices", "Glossary", "How-to", "Other"
-        ]
+        primary_topic = triage_result.topics[0] if triage_result.topics else "Other"
         
-        primary_topic = "Other" # Default
-        detected_topics = triage_result.topics
-        for topic in TOPIC_PRIORITY_ORDER:
-            if topic in detected_topics:
-                primary_topic = topic
-                break
-        
-        logging.info(f"[{ticket_id}] Multi-label topics detected: {detected_topics}. Primary topic for routing: '{primary_topic}'.")
-
         if primary_topic in RAG_TOPICS:
-            logging.info(f"[{ticket_id}] Primary topic requires RAG. Generating direct answer.")
-            rag_response = self._stage_respond(query, triage_result, primary_topic)
+            logging.info(f"[{ticket_id}] Topic '{primary_topic}' requires RAG. Generating direct answer.")
+            rag_response = self._stage_respond(query, triage_result)
             final_answer = self._format_final_answer(triage_result, validation_result, rag_response)
         else:
-            logging.info(f"[{ticket_id}] Primary topic does not require RAG. Routing ticket.")
+            logging.info(f"[{ticket_id}] Topic '{primary_topic}' does not require RAG. Routing ticket.")
             rag_response = {}
             final_answer = (
-                f"Thank you for your query. Your ticket has been classified with topics "
-                f"({', '.join(detected_topics)}) and routed for '{primary_topic}' review."
+                f"Thank you for your query. Your ticket has been classified as a "
+                f"'{primary_topic}' issue and has been routed to the appropriate team for review."
             )
 
         total_time = time.time() - start_time
@@ -144,10 +130,8 @@ class ChatbotPipeline:
         """Calls the AgenticHybridRAG module with full context."""
         logging.info(f"[{triage_result.ticket_id}] Stage 3: Response Generation...")
         
-        # Pass the primary topic for strategy, but the full list for context.
         classification_context = {
-            "primary_topic": primary_topic,
-            "all_topics": triage_result.topics,
+            "topic": triage_result.topics[0] if triage_result.topics else "Other",
             "priority": triage_result.priority
         }
         result = self.rag_system.answer_question(query, classification=classification_context)
@@ -208,11 +192,11 @@ if __name__ == '__main__':
     # Run the pipeline for each query
     for i, query in enumerate(test_queries):
         print(f"\n{'='*25} RUNNING TEST QUERY #{i+1} {'='*25}")
-        print(f"❓ Query: {query}\n")
+        print(f"Query: {query}\n")
         
         result = pipeline.run(query)
         
-        print(f"✅ FINAL ANSWER:\n\n{result.final_answer}")
+        print(f"FINAL ANSWER:\n\n{result.final_answer}")
         print(f"\n--- PIPELINE METADATA ---")
         print(f"  - Triage Topics: {result.triage.topics}")
         print(f"  - Triage Priority: {result.triage.priority}")
